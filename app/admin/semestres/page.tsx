@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, ChangeEvent, FormEvent } from "react";
+import { useState, FormEvent } from "react";
 import { Plus, Trash2, Pencil } from "lucide-react";
 
 type Subject = {
