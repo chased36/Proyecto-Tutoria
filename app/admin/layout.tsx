@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Menu, BookOpen, Users, LogOut } from "lucide-react";
+import clsx from "clsx";
 
 export default function AdminLayout({
   children,

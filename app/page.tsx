@@ -1,35 +1,35 @@
 import Link from "next/link";
 
-const semesters = [
-  {
-    id: "1",
-    name: "Semestre 1",
-    subjects: [
-      "Tradiciones teóricas 1",
-      "Tutoría Tradiciones teóricas 1",
-      "Procesos estadísticos 1",
-      "Dimensión biológica en psicología 1",
-      "Introducción a los ámbitos profesionales 1",
-      "Tutoría Dimensión biológica en psicología 1",
-      "Taller de integración universitaria 1",
-    ],
-  },
-  { id: "2", name: "Semestre 2", subjects: [] },
-  { id: "3", name: "Semestre 3", subjects: [] },
-  { id: "4", name: "Semestre 4", subjects: [] },
-  { id: "5", name: "Semestre 5", subjects: [] },
-  { id: "6", name: "Semestre 6", subjects: [] },
-  { id: "7", name: "Semestre 7", subjects: [] },
-  { id: "8", name: "Semestre 8", subjects: [] },
-  { id: "9", name: "Semestre 9", subjects: [] },
-];
-
 export default function Home({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams?: { [key: string]: string | string[] | undefined };
 }) {
-  const selectedSemester = searchParams.semester as string | undefined;
+  const semesters = [
+    {
+      id: "1",
+      name: "Semestre 1",
+      subjects: [
+        "Tradiciones teóricas 1",
+        "Tutoría Tradiciones teóricas 1",
+        "Procesos estadísticos 1",
+        "Dimensión biológica en psicología 1",
+        "Introducción a los ámbitos profesionales 1",
+        "Tutoría Dimensión biológica en psicología 1",
+        "Taller de integración universitaria 1",
+      ],
+    },
+    { id: "2", name: "Semestre 2", subjects: [] },
+    { id: "3", name: "Semestre 3", subjects: [] },
+    { id: "4", name: "Semestre 4", subjects: [] },
+    { id: "5", name: "Semestre 5", subjects: [] },
+    { id: "6", name: "Semestre 6", subjects: [] },
+    { id: "7", name: "Semestre 7", subjects: [] },
+    { id: "8", name: "Semestre 8", subjects: [] },
+    { id: "9", name: "Semestre 9", subjects: [] },
+  ];
+
+  const selectedSemester = searchParams?.semester as string | undefined;
   const currentSemester = semesters.find((sem) => sem.id === selectedSemester);
 
   return (
