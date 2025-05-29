@@ -89,10 +89,6 @@ export default async function Home({
                       <span className="font-medium text-black">
                         {subject.name}
                       </span>
-                      <div className="text-sm text-gray-700">
-                        {subject.pdfs.length} PDFs • {subject.videos.length}{" "}
-                        Videos • {subject.questions.length} Preguntas
-                      </div>
                     </div>
                   </Link>
                 ))}
@@ -102,12 +98,6 @@ export default async function Home({
                 <p className="text-gray-500 mb-4">
                   No hay asignaturas registradas para este semestre.
                 </p>
-                <Link
-                  href="/admin/semestres"
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                >
-                  Agregar Asignaturas
-                </Link>
               </div>
             )}
           </>
