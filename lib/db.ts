@@ -180,6 +180,49 @@ export async function deleteSubject(id: string): Promise<void> {
   console.log(`Asignatura con ID ${id} eliminada exitosamente`)
 }
 
+// Añadir esta nueva función a tu archivo lib/database.ts
+export async function getSubjectById(id: string): Promise<Subject | null> {
+  try {
+    console.log(`Buscando asignatura con ID: ${id}`)
+
+    // Obtener la asignatura básica
+    const subjectResult = await sql`
+      SELECT id, name, semestre_id, created_at
+      FROM asignatura 
+      WHERE id = ${id}
+    `
+
+    if (subjectResult.length === 0) {
+      console.log(`No se encontró ninguna asignatura con ID: ${id}`)
+      return null
+    }
+
+    const subject = subjectResult[0]
+    console.log(`Asignatura encontrada: ${subject.name}`)
+
+    // Obtener PDFs, videos y preguntas
+    const [pdfs, videos, questions] = await Promise.all([
+      getPDFsBySubject(id),
+      getVideosBySubject(id),
+      getQuestionsBySubject(id),
+    ])
+
+    // Construir el objeto completo
+    return {
+      id: subject.id,
+      name: subject.name,
+      semestre_id: subject.semestre_id,
+      created_at: subject.created_at,
+      pdfs,
+      videos,
+      questions,
+    } as Subject
+  } catch (error) {
+    console.error("Error al buscar asignatura por ID:", error)
+    return null
+  }
+}
+
 // Funciones para PDFs
 export async function getPDFsBySubject(subjectId: string): Promise<PDF[]> {
   const result = await sql`
@@ -288,4 +331,17 @@ export async function createQuestion(
     ...question,
     respuestas_incorrectas: respuestasIncorrectas,
   } as QuestionWithAnswers
+}
+
+// Añadir esta función para obtener el nombre del semestre
+export async function getSemesterNameById(id: string): Promise<string> {
+  try {
+    const result = await sql`
+      SELECT name FROM semestre WHERE id = ${id}
+    `
+    return result.length > 0 ? result[0].name : "Semestre desconocido"
+  } catch (error) {
+    console.error("Error al obtener nombre del semestre:", error)
+    return "Semestre desconocido"
+  }
 }
