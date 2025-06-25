@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Menu, BookOpen, Users, LogOut } from "lucide-react";
+import { Menu, BookOpen, Users, LogOut, Home } from "lucide-react";
 
 export default function AdminLayout({
   children,
@@ -24,6 +24,13 @@ export default function AdminLayout({
           Plan de Estudios
         </h1>
         <nav className="flex flex-col space-y-4">
+          <Link
+            href="/admin/"
+            className="flex items-center gap-2 hover:bg-blue-200"
+          >
+            <Home size={18} color="black" />
+            <h2 className="text-lg font-medium text-black">Inicio</h2>
+          </Link>
           <Link
             href="/admin/semestres"
             className="flex items-center gap-2 hover:bg-blue-200"

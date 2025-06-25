@@ -82,7 +82,7 @@ export default async function Home({
                 {subjects.map((subject) => (
                   <Link
                     key={subject.id}
-                    href={`/subject/${subject.id}`}
+                    href={`/asignatura/${subject.id}`}
                     className="block bg-blue-500 p-3 rounded shadow-sm border border-gray-200 hover:bg-blue-300 transition-colors"
                   >
                     <div className="flex justify-between items-center">

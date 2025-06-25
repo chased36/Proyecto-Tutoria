@@ -10,7 +10,6 @@ export function VideoPlayer({ videos }: VideoPlayerProps) {
   }
 
   const getYouTubeEmbedUrl = (url: string) => {
-    // Convertir URL de YouTube a formato embed
     const videoId = url.match(
       /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/
     );

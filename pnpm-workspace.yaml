@@ -1,4 +1,5 @@
 onlyBuiltDependencies:
   - bufferutil
+  - canvas
   - sharp
   - unrs-resolver

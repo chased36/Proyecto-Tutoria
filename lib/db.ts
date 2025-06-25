@@ -180,10 +180,16 @@ export async function deleteSubject(id: string): Promise<void> {
   console.log(`Asignatura con ID ${id} eliminada exitosamente`)
 }
 
-// Añadir esta nueva función a tu archivo lib/database.ts
+// Mejora de la función getSubjectById para depuración y manejo de errores
 export async function getSubjectById(id: string): Promise<Subject | null> {
   try {
     console.log(`Buscando asignatura con ID: ${id}`)
+
+    // Verificar que el ID no esté vacío
+    if (!id) {
+      console.error("ID de asignatura vacío o inválido")
+      return null
+    }
 
     // Obtener la asignatura básica
     const subjectResult = await sql`
@@ -192,7 +198,9 @@ export async function getSubjectById(id: string): Promise<Subject | null> {
       WHERE id = ${id}
     `
 
-    if (subjectResult.length === 0) {
+    console.log(`Resultado de la consulta:`, subjectResult)
+
+    if (!subjectResult || subjectResult.length === 0) {
       console.log(`No se encontró ninguna asignatura con ID: ${id}`)
       return null
     }
@@ -204,8 +212,10 @@ export async function getSubjectById(id: string): Promise<Subject | null> {
     const [pdfs, videos, questions] = await Promise.all([
       getPDFsBySubject(id),
       getVideosBySubject(id),
-      getQuestionsBySubject(id),
+      getQuestionsBySubject(subject.id),
     ])
+
+    console.log(`PDFs: ${pdfs.length}, Videos: ${videos.length}, Preguntas: ${questions.length}`)
 
     // Construir el objeto completo
     return {
