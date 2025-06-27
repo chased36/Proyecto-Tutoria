@@ -1,26 +1,71 @@
 "use client";
 
-import { useState } from "react";
+import type React from "react";
+
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { loginAction } from "@/app/actions/auth-actions";
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState(""); // Vacío por defecto
+  const [password, setPassword] = useState(""); // Vacío por defecto
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Verificar si ya está logueado al cargar la página
+  useEffect(() => {
+    const savedUser = localStorage.getItem("user");
+    if (savedUser) {
+      try {
+        const userData = JSON.parse(savedUser);
+        if (userData.id && userData.email) {
+          console.log("👤 Usuario ya logueado, redirigiendo...");
+          router.push("/admin");
+        }
+      } catch (error) {
+        console.log("🗑️ Limpiando localStorage corrupto");
+        localStorage.removeItem("user");
+      }
+    }
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    // Simulación de autenticación
-    if (email === "admin@admin.com" && password === "admin") {
-      router.push("/admin");
-    } else {
-      setError("Correo o contraseña incorrectos.");
+    try {
+      console.log("🔐 Intentando login con:", { email, password: "***" });
+
+      // Usar la función real de autenticación con base de datos
+      const result = await loginAction(email, password);
+
+      console.log("📊 Resultado del login:", {
+        success: result.success,
+        hasUser: !!result.user,
+      });
+
+      if (result.success && result.user) {
+        // Login exitoso - guardar usuario en localStorage y cookies
+        const userString = JSON.stringify(result.user);
+        localStorage.setItem("user", userString);
+
+        // Guardar también en cookies para el middleware
+        document.cookie = `user=${userString}; path=/; max-age=86400`; // 24 horas
+
+        console.log("✅ Sesión guardada, redirigiendo a admin...");
+
+        // Redirigir al admin
+        router.push("/admin");
+      } else {
+        console.log("❌ Login fallido:", result.error);
+        setError(result.error || "Correo o contraseña incorrectos.");
+      }
+    } catch (err) {
+      console.error("❌ Error en handleSubmit:", err);
+      setError("Error de conexión. Intenta nuevamente.");
     }
 
     setLoading(false);
@@ -44,9 +89,10 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Correo electrónico"
+                placeholder="correo@ejemplo.com"
                 className="w-full bg-white text-black px-4 py-2 rounded-md outline-none focus:ring-2 focus:ring-blue-500"
                 required
+                disabled={loading}
               />
             </div>
 
@@ -62,6 +108,7 @@ export default function LoginPage() {
                 placeholder="Contraseña"
                 className="w-full bg-white text-black px-4 py-2 rounded-md outline-none focus:ring-2 focus:ring-blue-500"
                 required
+                disabled={loading}
               />
             </div>
 
@@ -71,12 +118,21 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="w-full bg-[#012243] text-white py-2 px-4 rounded-md hover:opacity-90 transition"
+              className="w-full bg-[#012243] text-white py-2 px-4 rounded-md hover:opacity-90 transition disabled:opacity-50"
               disabled={loading}
             >
               {loading ? "Ingresando..." : "Acceder"}
             </button>
           </form>
+
+          {/* Información de ayuda */}
+          <div className="mt-6 p-3 bg-blue-50 rounded-md">
+            <p className="text-xs text-gray-600 text-center">
+              <strong>¿No tienes cuenta?</strong>
+              <br />
+              Contacta al administrador para crear una cuenta
+            </p>
+          </div>
         </div>
       </div>
     </div>
