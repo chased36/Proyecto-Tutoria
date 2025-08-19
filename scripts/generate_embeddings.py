@@ -11,6 +11,10 @@ import gc  # Para limpieza de memoria
 import signal
 import time
 
+MODEL_NAME = "sentence-transformers/multi-qa-mpnet-base-dot-v1"
+MODEL_CACHE_DIR = os.path.join(os.path.dirname(__file__), "model_cache")
+EMBEDDING_BATCH_SIZE = 4  # Reducido para entornos con RAM limitada
+
 # Variable global para el modelo (singleton)
 _embedding_model = None
 _pymupdf4llm = None
@@ -23,6 +27,62 @@ def signal_handler(signum, frame):
 
 signal.signal(signal.SIGTERM, signal_handler)
 signal.signal(signal.SIGINT, signal_handler)
+
+def download_model():
+    """Descargar modelo solo si no existe en caché"""
+    try:
+        os.makedirs(MODEL_CACHE_DIR, exist_ok=True)
+        
+        if not os.listdir(MODEL_CACHE_DIR):
+            print("⏳ Descargando modelo (primera ejecución)...", file=sys.stderr)
+            from sentence_transformers import SentenceTransformer
+            model = SentenceTransformer(
+                MODEL_NAME,
+                cache_folder=MODEL_CACHE_DIR,
+                device='cpu',
+                trust_remote_code=False
+            )
+            # Liberar memoria inmediatamente
+            del model
+            gc.collect()
+            print("✅ Modelo descargado y cacheado", file=sys.stderr)
+    except Exception as e:
+        print(f"❌ Error descargando modelo: {traceback.format_exc()}", file=sys.stderr)
+        raise
+
+def initialize_models():
+    """Inicializar modelos con singleton pattern"""
+    global _embedding_model, _pymupdf4llm
+    
+    if _embedding_model is not None:
+        return _pymupdf4llm, _embedding_model
+
+    try:
+        # 1. Descargar modelo si no existe
+        download_model()
+
+        # 2. Cargar bibliotecas
+        import pymupdf4llm
+        from sentence_transformers import SentenceTransformer
+
+        # 3. Configurar para bajo consumo de RAM
+        import torch
+        torch.set_num_threads(1)
+
+        # 4. Cargar modelo desde caché local
+        _embedding_model = SentenceTransformer(
+            MODEL_CACHE_DIR,
+            device='cpu',
+            trust_remote_code=False
+        )
+        
+        _pymupdf4llm = pymupdf4llm
+        return _pymupdf4llm, _embedding_model
+
+    except Exception as e:
+        print(f"❌ Error inicializando modelos: {traceback.format_exc()}", file=sys.stderr)
+        cleanup_model()
+        return None, None
 
 def cleanup_model():
     """Limpiar modelo de memoria"""
@@ -57,6 +117,52 @@ def download_pdf(url, temp_path, max_retries=3):
             time.sleep(2)  # Esperar antes del siguiente intento
     
     return False
+
+def process_pdf_to_embeddings(pdf_url, pdf_filename, pymupdf4llm, embedding_model):
+    """Procesar PDF y generar embeddings"""
+    temp_path = None
+    try:
+        # 1. Descargar PDF
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
+            temp_path = temp_file.name
+        
+        if not download_pdf(pdf_url, temp_path):
+            return None
+
+        # 2. Extraer texto
+        md_text = pymupdf4llm.to_markdown(temp_path)
+        if not md_text or len(md_text.strip()) < 10:
+            return []
+
+        # 3. Dividir texto
+        text_chunks = simple_text_splitter(md_text)
+        if not text_chunks:
+            return []
+
+        # 4. Generar embeddings por lotes pequeños
+        embeddings = []
+        for i in range(0, len(text_chunks), EMBEDDING_BATCH_SIZE):
+            batch = text_chunks[i:i + EMBEDDING_BATCH_SIZE]
+            try:
+                batch_embeddings = embedding_model.encode(
+                    batch,
+                    show_progress_bar=False,
+                    batch_size=2  # Más pequeño para Railway
+                )
+                embeddings.extend(batch_embeddings)
+            except Exception as e:
+                print(f"Error en lote {i//EMBEDDING_BATCH_SIZE}: {str(e)}", file=sys.stderr)
+                continue
+        return [
+            {"id": f"{pdf_filename}-{i}", "text": chunk, "embedding": emb.tolist()}
+            for i, (chunk, emb) in enumerate(zip(text_chunks, embeddings))
+        ]
+    except Exception as e:
+        print(f"Error procesando PDF: {traceback.format_exc()}", file=sys.stderr)
+        return None
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.unlink(temp_path)
 
 def simple_text_splitter(text, chunk_size=500, overlap=125):
     """Dividir texto en chunks de manera simple y robusta"""
