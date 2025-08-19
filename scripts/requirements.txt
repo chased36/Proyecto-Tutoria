@@ -1,0 +1,11 @@
+# Versiones actualizadas y compatibles
+psycopg2-binary
+torch
+torchvision
+torchaudio
+transformers
+sentence-transformers
+pymupdf4llm
+langchain-text-splitters
+requests
+tiktoken

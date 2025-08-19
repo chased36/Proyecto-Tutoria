@@ -18,7 +18,14 @@ export function PDFViewer({ pdfs }: PDFViewerProps) {
             key={pdf.id}
             className="flex items-center justify-between text-sm"
           >
-            <span className="text-gray-700">{pdf.filename}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-700">{pdf.filename}</span>
+              {pdf.embeddings_url && (
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                  IA Ready
+                </span>
+              )}
+            </div>
             <a
               href={pdf.url}
               target="_blank"

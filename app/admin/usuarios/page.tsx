@@ -38,9 +38,19 @@ export default function UsuariosPage() {
 
   const loadUsers = async () => {
     setLoading(true);
-    const result = await getUsersAction();
-    if (result.success && result.users) {
-      setUsers(result.users);
+    try {
+      const result = await getUsersAction();
+      if (result.success && result.users) {
+        const filteredUsers = result.users.filter(
+          (user) => user.email !== "admin@admin.com"
+        );
+        setUsers(filteredUsers);
+        console.log("✅ Usuarios cargados:", filteredUsers.length);
+      } else {
+        console.error("❌ Error cargando usuarios:", result.error);
+      }
+    } catch (error) {
+      console.error("❌ Error en loadUsers:", error);
     }
     setLoading(false);
   };

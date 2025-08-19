@@ -1,5 +1,5 @@
 import { neon } from "@neondatabase/serverless"
-import { deleteMultiplePDFsFromBlob, deletePDFFromBlob } from "./blob"
+import { deleteMultiplePDFsFromBlob, deletePDFFromBlob, deleteEmbeddingsFromBlob } from "./blob"
 
 const sql = neon(process.env.DATABASE_URL!)
 
@@ -23,6 +23,7 @@ export type PDF = {
   id: string
   filename: string
   url: string
+  embeddings_url?: string | null
   asignatura_id: string
   created_at: string
 }
@@ -147,16 +148,31 @@ export async function updateSubject(id: string, name: string): Promise<void> {
 export async function deleteSubject(id: string): Promise<void> {
   console.log(`Iniciando eliminación de la asignatura con ID: ${id}`)
 
-  // 1. Obtener y eliminar todos los PDFs asociados
+  // 1. Obtener y eliminar todos los PDFs asociados (incluyendo embeddings)
   const pdfs = await sql`
-    SELECT id, url FROM pdf WHERE asignatura_id = ${id}
+    SELECT id, url, embeddings_url FROM pdf WHERE asignatura_id = ${id}
   `
 
   console.log(`La asignatura tiene ${pdfs.length} PDFs para eliminar`)
 
-  // Eliminar los archivos PDF de Vercel Blob
+  // Recopilar URLs de PDFs y embeddings para eliminar de Blob
   const pdfUrls = pdfs.map((pdf: any) => pdf.url)
-  await deleteMultiplePDFsFromBlob(pdfUrls)
+  const embeddingsUrls = pdfs
+    .map((pdf: any) => pdf.embeddings_url)
+    .filter((url: string | null) => url !== null && url !== undefined)
+
+  // Eliminar los archivos PDF de Vercel Blob
+  if (pdfUrls.length > 0) {
+    await deleteMultiplePDFsFromBlob(pdfUrls)
+  }
+
+  // Eliminar los archivos de embeddings de Vercel Blob
+  if (embeddingsUrls.length > 0) {
+    console.log(`Eliminando ${embeddingsUrls.length} archivos de embeddings...`)
+    for (const embeddingsUrl of embeddingsUrls) {
+      await deleteEmbeddingsFromBlob(embeddingsUrl)
+    }
+  }
 
   // Eliminar las referencias de la base de datos
   await sql`DELETE FROM pdf WHERE asignatura_id = ${id}`
@@ -180,16 +196,10 @@ export async function deleteSubject(id: string): Promise<void> {
   console.log(`Asignatura con ID ${id} eliminada exitosamente`)
 }
 
-// Mejora de la función getSubjectById para depuración y manejo de errores
+// Añadir esta nueva función a tu archivo lib/database.ts
 export async function getSubjectById(id: string): Promise<Subject | null> {
   try {
     console.log(`Buscando asignatura con ID: ${id}`)
-
-    // Verificar que el ID no esté vacío
-    if (!id) {
-      console.error("ID de asignatura vacío o inválido")
-      return null
-    }
 
     // Obtener la asignatura básica
     const subjectResult = await sql`
@@ -198,9 +208,7 @@ export async function getSubjectById(id: string): Promise<Subject | null> {
       WHERE id = ${id}
     `
 
-    console.log(`Resultado de la consulta:`, subjectResult)
-
-    if (!subjectResult || subjectResult.length === 0) {
+    if (subjectResult.length === 0) {
       console.log(`No se encontró ninguna asignatura con ID: ${id}`)
       return null
     }
@@ -212,10 +220,8 @@ export async function getSubjectById(id: string): Promise<Subject | null> {
     const [pdfs, videos, questions] = await Promise.all([
       getPDFsBySubject(id),
       getVideosBySubject(id),
-      getQuestionsBySubject(subject.id),
+      getQuestionsBySubject(id),
     ])
-
-    console.log(`PDFs: ${pdfs.length}, Videos: ${videos.length}, Preguntas: ${questions.length}`)
 
     // Construir el objeto completo
     return {
@@ -236,7 +242,7 @@ export async function getSubjectById(id: string): Promise<Subject | null> {
 // Funciones para PDFs
 export async function getPDFsBySubject(subjectId: string): Promise<PDF[]> {
   const result = await sql`
-    SELECT id, filename, url, asignatura_id, created_at
+    SELECT id, filename, url, embeddings_url, asignatura_id, created_at
     FROM pdf 
     WHERE asignatura_id = ${subjectId}
     ORDER BY created_at DESC
@@ -244,28 +250,46 @@ export async function getPDFsBySubject(subjectId: string): Promise<PDF[]> {
   return result as PDF[]
 }
 
-export async function createPDF(filename: string, url: string, subjectId: string): Promise<PDF> {
+export async function createPDF(
+  filename: string,
+  url: string,
+  subjectId: string,
+  embeddingsUrl?: string,
+): Promise<PDF> {
   const result = await sql`
-    INSERT INTO pdf (id, filename, url, asignatura_id, created_at)
-    VALUES (gen_random_uuid(), ${filename}, ${url}, ${subjectId}, NOW())
-    RETURNING id, filename, url, asignatura_id, created_at
+    INSERT INTO pdf (id, filename, url, embeddings_url, asignatura_id, created_at)
+    VALUES (gen_random_uuid(), ${filename}, ${url}, ${embeddingsUrl || null}, ${subjectId}, NOW())
+    RETURNING id, filename, url, embeddings_url, asignatura_id, created_at
   `
   return result[0] as PDF
 }
 
 export async function deletePDF(id: string): Promise<void> {
-  // Primero obtenemos la URL del PDF
+  // Primero obtenemos la URL del PDF y embeddings
   const pdf = await sql`
-    SELECT url FROM pdf WHERE id = ${id}
+    SELECT url, embeddings_url FROM pdf WHERE id = ${id}
   `
 
   if (pdf && pdf.length > 0) {
-    // Eliminar el archivo de Vercel Blob
+    // Eliminar el archivo PDF de Vercel Blob
     await deletePDFFromBlob(pdf[0].url)
+
+    // Eliminar el archivo de embeddings si existe
+    if (pdf[0].embeddings_url) {
+      await deleteEmbeddingsFromBlob(pdf[0].embeddings_url)
+    }
 
     // Eliminar la referencia de la base de datos
     await sql`DELETE FROM pdf WHERE id = ${id}`
   }
+}
+
+export async function updatePDFEmbeddings(pdfId: string, embeddingsUrl: string): Promise<void> {
+  await sql`
+    UPDATE pdf 
+    SET embeddings_url = ${embeddingsUrl}
+    WHERE id = ${pdfId}
+  `
 }
 
 // Funciones para Videos

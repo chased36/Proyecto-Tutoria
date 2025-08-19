@@ -1,3 +1,5 @@
+"use server" // Añadido para asegurar que este módulo solo se ejecute en el servidor
+
 import { put, del } from "@vercel/blob"
 
 export async function uploadPDF(file: File): Promise<{ url: string; filename: string }> {
@@ -58,7 +60,7 @@ export async function deletePDFFromBlob(url: string): Promise<void> {
       return
     }
 
-    console.log("Eliminando archivo de Vercel Blob:", url)
+    console.log("Eliminando archivo PDF de Vercel Blob:", url)
 
     // Verificar que el token esté disponible
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
@@ -68,9 +70,9 @@ export async function deletePDFFromBlob(url: string): Promise<void> {
 
     // Eliminar el archivo de Vercel Blob
     await del(url, { token: process.env.BLOB_READ_WRITE_TOKEN })
-    console.log("Archivo eliminado exitosamente")
+    console.log("Archivo PDF eliminado exitosamente")
   } catch (error) {
-    console.error("Error eliminando archivo de Vercel Blob:", error)
+    console.error("Error eliminando archivo PDF de Vercel Blob:", error)
     // No lanzamos el error para que no interrumpa el flujo de eliminación
     // pero lo registramos para debugging
   }
@@ -83,9 +85,48 @@ export async function deleteMultiplePDFsFromBlob(urls: string[]): Promise<void> 
 
   try {
     await Promise.all(deletePromises)
-    console.log("Todos los archivos eliminados exitosamente")
+    console.log("Todos los archivos PDF eliminados exitosamente")
   } catch (error) {
     console.error("Error eliminando múltiples PDFs:", error)
+    // No lanzamos el error para que no interrumpa el flujo de eliminación
+  }
+}
+
+export async function deleteEmbeddingsFromBlob(url: string): Promise<void> {
+  try {
+    if (!url) {
+      console.warn("URL de embeddings vacía, no se puede eliminar el archivo")
+      return
+    }
+
+    console.log("Eliminando archivo de embeddings de Vercel Blob:", url)
+
+    // Verificar que el token esté disponible
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      console.error("BLOB_READ_WRITE_TOKEN no está configurado")
+      throw new Error("Token de Vercel Blob no configurado")
+    }
+
+    // Eliminar el archivo de embeddings de Vercel Blob
+    await del(url, { token: process.env.BLOB_READ_WRITE_TOKEN })
+    console.log("Archivo de embeddings eliminado exitosamente")
+  } catch (error) {
+    console.error("Error eliminando archivo de embeddings de Vercel Blob:", error)
+    // No lanzamos el error para que no interrumpa el flujo de eliminación
+    // pero lo registramos para debugging
+  }
+}
+
+export async function deleteMultipleEmbeddingsFromBlob(urls: string[]): Promise<void> {
+  console.log(`Eliminando ${urls.length} archivos de embeddings de Vercel Blob...`)
+
+  const deletePromises = urls.map((url) => deleteEmbeddingsFromBlob(url))
+
+  try {
+    await Promise.all(deletePromises)
+    console.log("Todos los archivos de embeddings eliminados exitosamente")
+  } catch (error) {
+    console.error("Error eliminando múltiples archivos de embeddings:", error)
     // No lanzamos el error para que no interrumpa el flujo de eliminación
   }
 }

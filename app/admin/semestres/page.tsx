@@ -73,6 +73,31 @@ export default function SemestreAdminPage() {
     if (result.success) {
       const updatedSubjects = await getSubjectsBySemesterAction(semesterId);
       setSubjects({ ...subjects, [semesterId]: updatedSubjects });
+
+      // Mostrar mensaje sobre embeddings si existe
+      if (result.message) {
+        // Crear una notificación temporal
+        const notification = document.createElement("div");
+        notification.className =
+          "fixed top-4 right-4 bg-blue-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-md";
+        notification.innerHTML = `
+          <div class="flex items-start gap-2">
+            <div class="text-2xl">🤖</div>
+            <div>
+              <div class="font-semibold">Procesando IA</div>
+              <div class="text-sm">${result.message}</div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(notification);
+
+        // Remover después de 8 segundos
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        }, 8000);
+      }
     } else {
       alert(result.error || "Error al crear la asignatura");
       throw new Error(result.error || "Error al crear la asignatura");
