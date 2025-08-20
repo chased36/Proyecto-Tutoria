@@ -59,14 +59,12 @@ export async function getSubjectsBySemesterAction(semesterId: string): Promise<S
   return await getSubjectsBySemester(semesterId)
 }
 
-// Función para iniciar el proceso de embeddings de forma asíncrona
 async function startEmbeddingsProcessAsync(
   pdfs: { url: string; filename: string; id: string }[],
 ): Promise<{ success: boolean; message: string }> {
   try {
     console.log(`🚀 Iniciando proceso asíncrono de embeddings para ${pdfs.length} PDFs...`)
 
-    // Hacer la llamada sin esperar la respuesta completa
     fetch(`${process.env.NEXT_PUBLIC_API_HOST || "http://localhost:3000"}/api/generate-embeddings`, {
       method: "POST",
       headers: {

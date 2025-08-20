@@ -48,6 +48,15 @@ export type QuestionWithAnswers = Question & {
   respuestas_incorrectas: string[]
 }
 
+export type Task = {
+  id: string
+  pdf_id: string
+  status: "pending" | "processing" | "done" | "error"
+  error_message?: string | null
+  created_at: string
+  updated_at: string
+}
+
 // Funciones para Semestres
 export async function getSemesters(): Promise<Semester[]> {
   const result = await sql`
@@ -253,15 +262,19 @@ export async function getPDFsBySubject(subjectId: string): Promise<PDF[]> {
 export async function createPDF(
   filename: string,
   url: string,
-  subjectId: string,
-  embeddingsUrl?: string,
+  subjectId: string
 ): Promise<PDF> {
   const result = await sql`
     INSERT INTO pdf (id, filename, url, embeddings_url, asignatura_id, created_at)
-    VALUES (gen_random_uuid(), ${filename}, ${url}, ${embeddingsUrl || null}, ${subjectId}, NOW())
+    VALUES (gen_random_uuid(), ${filename}, ${url}, NULL, ${subjectId}, NOW())
     RETURNING id, filename, url, embeddings_url, asignatura_id, created_at
   `
-  return result[0] as PDF
+
+  const pdf = result[0] as PDF
+
+  await createEmbeddingTask(pdf.id)
+
+  return pdf
 }
 
 export async function deletePDF(id: string): Promise<void> {
@@ -378,4 +391,40 @@ export async function getSemesterNameById(id: string): Promise<string> {
     console.error("Error al obtener nombre del semestre:", error)
     return "Semestre desconocido"
   }
+}
+
+export async function createEmbeddingTask(pdfId: string): Promise<Task> {
+  const result = await sql`
+    INSERT INTO task (pdf_id, status, created_at, updated_at)
+    VALUES (${pdfId}, 'pending', NOW(), NOW())
+    RETURNING id, pdf_id, status, error_message, created_at, updated_at
+  `
+  return result[0] as Task
+}
+
+// Obtener tareas pendientes para el worker
+export async function getPendingTasks(limit: number = 10): Promise<Task[]> {
+  const result = await sql`
+    SELECT id, pdf_id, status, error_message, created_at, updated_at
+    FROM task
+    WHERE status = 'pending'
+    ORDER BY created_at ASC
+    LIMIT ${limit}
+  `
+  return result as Task[]
+}
+
+// Actualizar estado de una tarea
+export async function updateTaskStatus(
+  taskId: string,
+  status: "pending" | "processing" | "done" | "error",
+  errorMessage?: string
+): Promise<void> {
+  await sql`
+    UPDATE task
+    SET status = ${status}, 
+        error_message = ${errorMessage || null}, 
+        updated_at = NOW()
+    WHERE id = ${taskId}
+  `
 }
