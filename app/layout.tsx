@@ -16,7 +16,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
       <body className="bg-[#D4D4D4] font-sans">
         <header className="flex items-center bg-[#012243] text-white flex-col md:flex-row p-4 gap-4">
           <Link href="/" className="flex-shrink-0">
@@ -26,7 +26,14 @@ export default function RootLayout({
             Guías Online para Extraordinarios
           </h1>
         </header>
-        <main>{children}</main>
+        <main className="flex-1">{children}</main>
+        <footer className="bg-[#003865] text-white py-4 mt-auto">
+          <div className="container mx-auto px-4 text-center">
+            <p className="text-sm md:text-base">
+              Facultad de Estudios Superiores Iztacala 2025
+            </p>
+          </div>
+        </footer>
       </body>
     </html>
   );
