@@ -10,7 +10,7 @@ export async function loginAction(email: string, password: string) {
     const user = await authenticateUser(email, password)
 
     if (user) {
-      console.log("✅ Login exitoso para usuario:", user.nombre)
+      console.log("✅ Login exitoso para usuario:", user.nombre, "Rol:", user.role)
       return { success: true, user }
     } else {
       console.log("❌ Login fallido: credenciales incorrectas")

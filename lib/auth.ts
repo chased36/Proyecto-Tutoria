@@ -8,6 +8,7 @@ export type User = {
   nombre: string
   email: string
   created_at: string
+  role?: "admin" | "editor"
 }
 
 // Funciones para usuarios
@@ -17,7 +18,10 @@ export async function getUsers(): Promise<User[]> {
     FROM usuarios 
     ORDER BY created_at DESC
   `
-  return result as User[]
+  return result.map((user) => ({
+    ...user,
+    role: user.email === "admin@admin.com" ? "admin" : "editor",
+  })) as User[]
 }
 
 export async function createUser(nombre: string, email: string, password: string): Promise<User> {
@@ -29,7 +33,10 @@ export async function createUser(nombre: string, email: string, password: string
     VALUES (gen_random_uuid(), ${nombre}, ${email}, ${hashedPassword}, NOW())
     RETURNING id, nombre, email, created_at
   `
-  return result[0] as User
+
+  const user = result[0] as User
+  user.role = user.email === "admin@admin.com" ? "admin" : "editor"
+  return user
 }
 
 export async function deleteUser(id: string): Promise<void> {
@@ -69,12 +76,13 @@ export async function authenticateUser(email: string, password: string): Promise
 
     console.log("✅ Autenticación exitosa")
 
-    // Retornar usuario sin la contraseña
+    // Retornar usuario sin la contraseña y con rol
     return {
       id: user.id,
       nombre: user.nombre,
       email: user.email,
       created_at: user.created_at,
+      role: user.email === "admin@admin.com" ? "admin" : "editor",
     } as User
   } catch (error) {
     console.error("❌ Error en autenticación:", error)

@@ -9,8 +9,8 @@ import { loginAction } from "@/app/actions/auth-actions";
 export default function LoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState(""); // Vacío por defecto
-  const [password, setPassword] = useState(""); // Vacío por defecto
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -22,7 +22,12 @@ export default function LoginPage() {
         const userData = JSON.parse(savedUser);
         if (userData.id && userData.email) {
           console.log("👤 Usuario ya logueado, redirigiendo...");
-          router.push("/admin");
+          // Redirigir según el rol
+          if (userData.email === "admin@admin.com") {
+            router.push("/admin");
+          } else {
+            router.push("/editor");
+          }
         }
       } catch (error) {
         console.log("🗑️ Limpiando localStorage corrupto");
@@ -39,7 +44,6 @@ export default function LoginPage() {
     try {
       console.log("🔐 Intentando login con:", { email, password: "***" });
 
-      // Usar la función real de autenticación con base de datos
       const result = await loginAction(email, password);
 
       console.log("📊 Resultado del login:", {
@@ -55,10 +59,16 @@ export default function LoginPage() {
         // Guardar también en cookies para el middleware
         document.cookie = `user=${userString}; path=/; max-age=86400`; // 24 horas
 
-        console.log("✅ Sesión guardada, redirigiendo a admin...");
+        console.log("✅ Sesión guardada, redirigiendo según rol...");
 
-        // Redirigir al admin
-        router.push("/admin");
+        // Redirigir según el rol del usuario
+        if (result.user.email === "admin@admin.com") {
+          console.log("🔑 Redirigiendo a panel de administrador");
+          router.push("/admin");
+        } else {
+          console.log("✏️ Redirigiendo a panel de editor");
+          router.push("/editor");
+        }
       } else {
         console.log("❌ Login fallido:", result.error);
         setError(result.error || "Correo o contraseña incorrectos.");
@@ -125,7 +135,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Información de ayuda */}
           <div className="mt-6 p-3 bg-blue-50 rounded-md">
             <p className="text-xs text-gray-600 text-center">
               <strong>¿No tienes cuenta?</strong>
