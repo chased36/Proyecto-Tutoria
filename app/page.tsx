@@ -24,7 +24,7 @@ export default async function Home({
   }
 
   return (
-    <div>
+    <div className="min-h-screen flex flex-col">
       <section className="mb-8">
         <div className="text-center mt-6">
           <h1 className="text-3xl font-semibold mb-4">Plan de Estudios</h1>
