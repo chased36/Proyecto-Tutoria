@@ -20,26 +20,20 @@ export function ChatbotModal({
   isOpen,
   onClose,
 }: ChatbotModalProps) {
-  const {
-    messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
-    error,
-  } = useChat({
-    api: "/api/chatbot",
-    initialMessages: [
-      {
-        id: "welcome",
-        role: "assistant",
-        content: `¡Hola! Soy TUTOR-IA.
+  const { messages, input, handleInputChange, handleSubmit, isLoading, error } =
+    useChat({
+      api: "/api/chatbot",
+      initialMessages: [
+        {
+          id: "welcome",
+          role: "assistant",
+          content: `¡Hola! Soy TUTOR-IA.
 
 ¿En qué puedo ayudarte?`,
-      },
-    ],
-    body: { subjectId: subjectId },
-  });
+        },
+      ],
+      body: { subjectId: subjectId },
+    });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 

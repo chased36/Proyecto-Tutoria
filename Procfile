@@ -1,1 +1,2 @@
-worker: python scripts/generate_embeddings.py input.json
+web: pnpm run start
+worker: node worker.js

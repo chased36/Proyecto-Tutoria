@@ -53,6 +53,9 @@ pip install --no-cache-dir tiktoken
 echo "📦 Instalando requests..."
 pip install --no-cache-dir requests
 
+echo 📦 Instalando psycopg2-binary...
+pip install --no-cache-dir psycopg2-binary
+
 # Limpiar caché de transformers
 echo "🧹 Configurando caché de transformers..."
 python scripts/clear_transformers_cache.py

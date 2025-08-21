@@ -10,7 +10,6 @@ import {
   updateSubject,
   deleteSubject,
   createPDF,
-  updatePDFEmbeddings,
   createVideo,
   createQuestion,
   type Semester,
@@ -59,58 +58,11 @@ export async function getSubjectsBySemesterAction(semesterId: string): Promise<S
   return await getSubjectsBySemester(semesterId)
 }
 
-async function startEmbeddingsProcessAsync(
-  pdfs: { url: string; filename: string; id: string }[],
-): Promise<{ success: boolean; message: string }> {
-  try {
-    console.log(`🚀 Iniciando proceso asíncrono de embeddings para ${pdfs.length} PDFs...`)
-
-    fetch(`${process.env.NEXT_PUBLIC_API_HOST || "http://localhost:3000"}/api/generate-embeddings`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ pdfs }),
-    })
-      .then(async (response) => {
-        if (response.ok) {
-          const result = await response.json()
-          console.log(`✅ Embeddings completados asíncronamente: ${result.total_chunks} chunks`)
-
-          // Actualizar las URLs de embeddings en la base de datos
-          if (result.success && result.embeddings_url) {
-            for (const pdfData of pdfs) {
-              await updatePDFEmbeddings(pdfData.id, result.embeddings_url)
-            }
-            console.log(`✅ URLs de embeddings actualizadas en la base de datos`)
-          }
-        } else {
-          console.error(`❌ Error en proceso asíncrono de embeddings: ${response.status}`)
-        }
-      })
-      .catch((error) => {
-        console.error(`❌ Error en proceso asíncrono de embeddings:`, error)
-      })
-
-    return {
-      success: true,
-      message:
-        "Proceso de embeddings iniciado en segundo plano. Los PDFs estarán listos para búsqueda IA en unos minutos.",
-    }
-  } catch (error) {
-    console.error(`❌ Error iniciando proceso asíncrono:`, error)
-    return {
-      success: false,
-      message: "Error iniciando el proceso de embeddings",
-    }
-  }
-}
-
 export async function createSubjectWithFilesAction(
   formData: FormData,
-): Promise<{ success: boolean; subject?: Subject; error?: string; message?: string }> {
+): Promise<{ success: boolean; subject?: Subject; error?: string }> {
   try {
-    console.log("=== Iniciando creación de asignatura con archivos ===")
+    console.log("=== Iniciando creación de asignatura con archivos (ASÍNCRONO) ===")
 
     const name = formData.get("name") as string
     const semesterId = formData.get("semesterId") as string
@@ -193,10 +145,6 @@ export async function createSubjectWithFilesAction(
     console.log("Asignatura creada con ID:", subject.id)
 
     // Subir PDFs a Vercel Blob (solo si hay archivos)
-    const pdfIds: string[] = []
-    const uploadedPDFs: { url: string; filename: string; id: string }[] = []
-    let embeddingsMessage = ""
-
     if (pdfFiles.length > 0) {
       console.log("Subiendo PDFs a Vercel Blob...")
       try {
@@ -204,20 +152,13 @@ export async function createSubjectWithFilesAction(
         console.log("PDFs subidos exitosamente:", uploadedPDFsData.length)
 
         // Guardar referencias en la base de datos
+        // IMPORTANTE: createPDF ahora crea automáticamente la tarea de embeddings
         for (const pdf of uploadedPDFsData) {
-          const createdPDF = await createPDF(pdf.filename, pdf.url, subject.id)
-          pdfIds.push(createdPDF.id)
-          uploadedPDFs.push({
-            url: pdf.url,
-            filename: pdf.filename,
-            id: createdPDF.id,
-          })
+          await createPDF(pdf.filename, pdf.url, subject.id)
+          console.log(`✅ PDF ${pdf.filename} guardado y tarea de embeddings creada`)
         }
-        console.log("Referencias de PDFs guardadas en la base de datos")
 
-        // Iniciar proceso de embeddings de forma asíncrona
-        const embeddingsResult = await startEmbeddingsProcessAsync(uploadedPDFs)
-        embeddingsMessage = embeddingsResult.message
+        console.log("🔄 Los embeddings se procesarán automáticamente en segundo plano")
       } catch (uploadError) {
         console.error("Error específico en subida de PDFs:", uploadError)
         // Eliminar la asignatura si falló la subida de PDFs
@@ -242,72 +183,12 @@ export async function createSubjectWithFilesAction(
       await createQuestion(q.question, q.correctAnswer, q.wrongAnswers, subject.id)
     }
 
-    console.log("=== Asignatura creada exitosamente ===")
+    console.log("=== Asignatura creada exitosamente (embeddings en proceso) ===")
     revalidatePath("/admin/semestres")
-
     return {
       success: true,
       subject,
-      message: embeddingsMessage || undefined,
     }
-  } catch (error) {
-    console.error("Error creating subject:", error)
-    return {
-      success: false,
-      error: `Error al crear la asignatura: ${error instanceof Error ? error.message : "Error desconocido"}`,
-    }
-  }
-}
-
-export async function createSubjectAction(
-  name: string,
-  semesterId: string,
-  youtubeLinks: string[],
-  questions: { question: string; correctAnswer: string; wrongAnswers: string[] }[],
-  uploadedPDFs?: { url: string; filename: string }[],
-): Promise<{ success: boolean; subject?: Subject; error?: string }> {
-  try {
-    console.log("=== Iniciando creación de asignatura ===")
-    console.log("Nombre:", name)
-    console.log("Semestre ID:", semesterId)
-    console.log("PDFs subidos:", uploadedPDFs?.length || 0)
-
-    if (!name?.trim()) {
-      return { success: false, error: "El nombre de la asignatura es requerido" }
-    }
-
-    // Crear la asignatura
-    console.log("Creando asignatura en la base de datos...")
-    const subject = await createSubject(name.trim(), semesterId)
-    console.log("Asignatura creada con ID:", subject.id)
-
-    // Guardar referencias de PDFs en la base de datos (si hay)
-    if (uploadedPDFs && uploadedPDFs.length > 0) {
-      console.log("Guardando referencias de PDFs en la base de datos...")
-      for (const pdf of uploadedPDFs) {
-        await createPDF(pdf.filename, pdf.url, subject.id)
-      }
-      console.log("Referencias de PDFs guardadas")
-    }
-
-    // Agregar videos
-    for (const url of youtubeLinks) {
-      if (url.trim()) {
-        const title = `Video - ${url.split("/").pop() || "YouTube"}`
-        await createVideo(title, url, subject.id)
-      }
-    }
-
-    // Agregar preguntas
-    for (const q of questions) {
-      if (q.question.trim() && q.correctAnswer.trim() && q.wrongAnswers.every((w) => w.trim())) {
-        await createQuestion(q.question, q.correctAnswer, q.wrongAnswers, subject.id)
-      }
-    }
-
-    console.log("=== Asignatura creada exitosamente ===")
-    revalidatePath("/admin/semestres")
-    return { success: true, subject }
   } catch (error) {
     console.error("Error creating subject:", error)
     return {

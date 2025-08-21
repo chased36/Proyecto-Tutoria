@@ -26,6 +26,7 @@ export type PDF = {
   embeddings_url?: string | null
   asignatura_id: string
   created_at: string
+  task_status?: "pending" | "processing" | "completed" | "error" | null
 }
 
 export type Video = {
@@ -51,7 +52,7 @@ export type QuestionWithAnswers = Question & {
 export type Task = {
   id: string
   pdf_id: string
-  status: "pending" | "processing" | "done" | "error"
+  status: "pending" | "processing" | "completed" | "error"
   error_message?: string | null
   created_at: string
   updated_at: string
@@ -79,21 +80,30 @@ export async function createSemester(name: string): Promise<Semester> {
 export async function deleteSemester(id: string): Promise<void> {
   console.log(`Iniciando eliminación del semestre con ID: ${id}`)
 
-  // Primero obtenemos todas las asignaturas del semestre
   const subjects = await sql`
     SELECT id FROM asignatura WHERE semestre_id = ${id}
   `
 
   console.log(`El semestre tiene ${subjects.length} asignaturas para eliminar`)
 
-  // Eliminamos cada asignatura (esto eliminará también sus PDFs, videos y preguntas)
   for (const subject of subjects) {
     await deleteSubject(subject.id)
   }
 
-  // Finalmente eliminamos el semestre
   await sql`DELETE FROM semestre WHERE id = ${id}`
   console.log(`Semestre con ID ${id} eliminado exitosamente`)
+}
+
+export async function getSemesterNameById(id: string): Promise<string> {
+  try {
+    const result = await sql`
+      SELECT name FROM semestre WHERE id = ${id}
+    `
+    return result.length > 0 ? result[0].name : "Semestre desconocido"
+  } catch (error) {
+    console.error("Error al obtener nombre del semestre:", error)
+    return "Semestre desconocido"
+  }
 }
 
 // Funciones para Asignaturas
@@ -134,7 +144,6 @@ export async function createSubject(name: string, semesterId: string): Promise<S
 
   const dbResult = result[0]
 
-  // Construcción explícita del objeto Subject
   return {
     id: dbResult.id,
     name: dbResult.name,
@@ -157,25 +166,25 @@ export async function updateSubject(id: string, name: string): Promise<void> {
 export async function deleteSubject(id: string): Promise<void> {
   console.log(`Iniciando eliminación de la asignatura con ID: ${id}`)
 
-  // 1. Obtener y eliminar todos los PDFs asociados (incluyendo embeddings)
   const pdfs = await sql`
     SELECT id, url, embeddings_url FROM pdf WHERE asignatura_id = ${id}
   `
 
   console.log(`La asignatura tiene ${pdfs.length} PDFs para eliminar`)
 
-  // Recopilar URLs de PDFs y embeddings para eliminar de Blob
+  for (const pdf of pdfs) {
+    await sql`DELETE FROM task WHERE pdf_id = ${pdf.id}`
+  }
+
   const pdfUrls = pdfs.map((pdf: any) => pdf.url)
   const embeddingsUrls = pdfs
     .map((pdf: any) => pdf.embeddings_url)
     .filter((url: string | null) => url !== null && url !== undefined)
 
-  // Eliminar los archivos PDF de Vercel Blob
   if (pdfUrls.length > 0) {
     await deleteMultiplePDFsFromBlob(pdfUrls)
   }
 
-  // Eliminar los archivos de embeddings de Vercel Blob
   if (embeddingsUrls.length > 0) {
     console.log(`Eliminando ${embeddingsUrls.length} archivos de embeddings...`)
     for (const embeddingsUrl of embeddingsUrls) {
@@ -183,34 +192,24 @@ export async function deleteSubject(id: string): Promise<void> {
     }
   }
 
-  // Eliminar las referencias de la base de datos
   await sql`DELETE FROM pdf WHERE asignatura_id = ${id}`
-
-  // 2. Eliminar todos los videos asociados
   await sql`DELETE FROM videos WHERE asignatura_id = ${id}`
 
-  // 3. Eliminar todas las preguntas asociadas (primero necesitamos eliminar las respuestas incorrectas)
   const questions = await sql`SELECT id FROM pregunta WHERE asignatura_id = ${id}`
-
   for (const question of questions) {
-    // Eliminar respuestas incorrectas de cada pregunta
     await sql`DELETE FROM respuestaincorrecta WHERE pregunta_id = ${question.id}`
   }
 
-  // Ahora eliminar las preguntas
   await sql`DELETE FROM pregunta WHERE asignatura_id = ${id}`
-
-  // 4. Finalmente eliminar la asignatura
   await sql`DELETE FROM asignatura WHERE id = ${id}`
+  
   console.log(`Asignatura con ID ${id} eliminada exitosamente`)
 }
 
-// Añadir esta nueva función a tu archivo lib/database.ts
 export async function getSubjectById(id: string): Promise<Subject | null> {
   try {
     console.log(`Buscando asignatura con ID: ${id}`)
 
-    // Obtener la asignatura básica
     const subjectResult = await sql`
       SELECT id, name, semestre_id, created_at
       FROM asignatura 
@@ -225,14 +224,12 @@ export async function getSubjectById(id: string): Promise<Subject | null> {
     const subject = subjectResult[0]
     console.log(`Asignatura encontrada: ${subject.name}`)
 
-    // Obtener PDFs, videos y preguntas
     const [pdfs, videos, questions] = await Promise.all([
       getPDFsBySubject(id),
       getVideosBySubject(id),
       getQuestionsBySubject(id),
     ])
 
-    // Construir el objeto completo
     return {
       id: subject.id,
       name: subject.name,
@@ -251,19 +248,23 @@ export async function getSubjectById(id: string): Promise<Subject | null> {
 // Funciones para PDFs
 export async function getPDFsBySubject(subjectId: string): Promise<PDF[]> {
   const result = await sql`
-    SELECT id, filename, url, embeddings_url, asignatura_id, created_at
-    FROM pdf 
-    WHERE asignatura_id = ${subjectId}
-    ORDER BY created_at DESC
+    SELECT 
+      p.id, 
+      p.filename, 
+      p.url, 
+      p.embeddings_url, 
+      p.asignatura_id, 
+      p.created_at,
+      t.status as task_status
+    FROM pdf p
+    LEFT JOIN task t ON p.id = t.pdf_id
+    WHERE p.asignatura_id = ${subjectId}
+    ORDER BY p.created_at DESC
   `
   return result as PDF[]
 }
 
-export async function createPDF(
-  filename: string,
-  url: string,
-  subjectId: string
-): Promise<PDF> {
+export async function createPDF(filename: string, url: string, subjectId: string): Promise<PDF> {
   const result = await sql`
     INSERT INTO pdf (id, filename, url, embeddings_url, asignatura_id, created_at)
     VALUES (gen_random_uuid(), ${filename}, ${url}, NULL, ${subjectId}, NOW())
@@ -271,28 +272,24 @@ export async function createPDF(
   `
 
   const pdf = result[0] as PDF
-
   await createEmbeddingTask(pdf.id)
 
   return pdf
 }
 
 export async function deletePDF(id: string): Promise<void> {
-  // Primero obtenemos la URL del PDF y embeddings
   const pdf = await sql`
     SELECT url, embeddings_url FROM pdf WHERE id = ${id}
   `
 
   if (pdf && pdf.length > 0) {
-    // Eliminar el archivo PDF de Vercel Blob
+    await sql`DELETE FROM task WHERE pdf_id = ${id}`
     await deletePDFFromBlob(pdf[0].url)
 
-    // Eliminar el archivo de embeddings si existe
     if (pdf[0].embeddings_url) {
       await deleteEmbeddingsFromBlob(pdf[0].embeddings_url)
     }
 
-    // Eliminar la referencia de la base de datos
     await sql`DELETE FROM pdf WHERE id = ${id}`
   }
 }
@@ -366,7 +363,6 @@ export async function createQuestion(
 
   const question = questionResult[0] as Question
 
-  // Insertar respuestas incorrectas
   for (const respuesta of respuestasIncorrectas) {
     await sql`
       INSERT INTO respuestaincorrecta (id, respuesta, pregunta_id)
@@ -380,19 +376,7 @@ export async function createQuestion(
   } as QuestionWithAnswers
 }
 
-// Añadir esta función para obtener el nombre del semestre
-export async function getSemesterNameById(id: string): Promise<string> {
-  try {
-    const result = await sql`
-      SELECT name FROM semestre WHERE id = ${id}
-    `
-    return result.length > 0 ? result[0].name : "Semestre desconocido"
-  } catch (error) {
-    console.error("Error al obtener nombre del semestre:", error)
-    return "Semestre desconocido"
-  }
-}
-
+// Funciones para Tareas de Embeddings existentes
 export async function createEmbeddingTask(pdfId: string): Promise<Task> {
   const result = await sql`
     INSERT INTO task (pdf_id, status, created_at, updated_at)
@@ -402,8 +386,7 @@ export async function createEmbeddingTask(pdfId: string): Promise<Task> {
   return result[0] as Task
 }
 
-// Obtener tareas pendientes para el worker
-export async function getPendingTasks(limit: number = 10): Promise<Task[]> {
+export async function getPendingTasks(limit = 10): Promise<Task[]> {
   const result = await sql`
     SELECT id, pdf_id, status, error_message, created_at, updated_at
     FROM task
@@ -414,11 +397,10 @@ export async function getPendingTasks(limit: number = 10): Promise<Task[]> {
   return result as Task[]
 }
 
-// Actualizar estado de una tarea
 export async function updateTaskStatus(
   taskId: string,
-  status: "pending" | "processing" | "done" | "error",
-  errorMessage?: string
+  status: "pending" | "processing" | "completed" | "error",
+  errorMessage?: string,
 ): Promise<void> {
   await sql`
     UPDATE task
@@ -428,3 +410,305 @@ export async function updateTaskStatus(
     WHERE id = ${taskId}
   `
 }
+
+export async function getTaskById(taskId: string): Promise<Task | null> {
+  const result = await sql`
+    SELECT id, pdf_id, status, error_message, created_at, updated_at
+    FROM task
+    WHERE id = ${taskId}
+  `
+  return result.length > 0 ? (result[0] as Task) : null
+}
+
+export async function getPDFByTaskId(taskId: string): Promise<{ pdf: PDF } | null> {
+  const result = await sql`
+    SELECT p.id, p.filename, p.url, p.embeddings_url, p.asignatura_id, p.created_at
+    FROM pdf p
+    INNER JOIN task t ON t.pdf_id = p.id
+    WHERE t.id = ${taskId}
+  `
+
+  if (result.length === 0) {
+    return null
+  }
+
+  return { pdf: result[0] as PDF }
+}
+
+export async function getTaskByPdfId(pdfId: string): Promise<Task | null> {
+  const result = await sql`
+    SELECT id, pdf_id, status, error_message, created_at, updated_at
+    FROM task
+    WHERE pdf_id = ${pdfId}
+    ORDER BY created_at DESC
+    LIMIT 1
+  `
+
+  return result.length > 0 ? (result[0] as Task) : null
+}
+
+//Funciones para embeddings nuevos
+export async function getPendingTasksWithPDFInfo(limit: number = 1): Promise<any[]> {
+  const result = await sql`
+    SELECT 
+      t.id as task_id,
+      t.pdf_id,
+      t.status as task_status,
+      t.error_message,
+      t.created_at as task_created,
+      t.updated_at as task_updated,
+      p.filename,
+      p.url as pdf_url,
+      p.embeddings_url,
+      p.total_chunks,
+      p.asignatura_id
+    FROM task t
+    INNER JOIN pdf p ON t.pdf_id = p.id
+    WHERE t.status = 'pending'
+    ORDER BY t.created_at ASC
+    LIMIT ${limit}
+  `
+  return result
+}
+
+export async function updatePDFWithEmbeddings(
+  pdfId: string, 
+  embeddingsUrl: string,
+  totalChunks: number
+): Promise<void> {
+  await sql`
+    UPDATE pdf
+    SET 
+      embeddings_url = ${embeddingsUrl},
+      total_chunks = ${totalChunks},
+      updated_at = NOW()
+    WHERE id = ${pdfId}
+  `
+}
+
+export async function getTaskWithPDFInfo(taskId: string): Promise<any> {
+  const result = await sql`
+    SELECT 
+      t.id as task_id,
+      t.pdf_id,
+      t.status as task_status,
+      t.error_message,
+      t.created_at as task_created,
+      t.updated_at as task_updated,
+      p.filename,
+      p.url as pdf_url,
+      p.embeddings_url,
+      p.total_chunks,
+      p.asignatura_id
+    FROM task t
+    INNER JOIN pdf p ON t.pdf_id = p.id
+    WHERE t.id = ${taskId}
+  `
+  return result.length > 0 ? result[0] : null
+}
+
+export async function hasPDFEmbeddings(pdfId: string): Promise<boolean> {
+  const result = await sql`
+    SELECT embeddings_url 
+    FROM pdf 
+    WHERE id = ${pdfId} AND embeddings_url IS NOT NULL
+  `
+  return result.length > 0
+}
+
+export async function getTaskStats(): Promise<{
+  pending: number;
+  processing: number;
+  completed: number;
+  error: number;
+  total: number;
+}> {
+  const result = await sql`
+    SELECT 
+      status,
+      COUNT(*) as count
+    FROM task
+    GROUP BY status
+  `
+  
+  const stats = {
+    pending: 0,
+    processing: 0,
+    completed: 0,
+    error: 0,
+    total: 0
+  }
+  
+  result.forEach((row: any) => {
+    stats[row.status as keyof typeof stats] = parseInt(row.count)
+    stats.total += parseInt(row.count)
+  })
+  
+  return stats
+}
+
+export async function getOldestPendingTask(): Promise<any> {
+  const result = await sql`
+    SELECT 
+      t.id,
+      t.created_at,
+      p.filename
+    FROM task t
+    INNER JOIN pdf p ON t.pdf_id = p.id
+    WHERE t.status = 'pending'
+    ORDER BY t.created_at ASC
+    LIMIT 1
+  `
+  return result.length > 0 ? result[0] : null
+}
+
+export async function cleanupOldTasks(days: number = 7): Promise<number> {
+  const result = await sql`
+    DELETE FROM task
+    WHERE created_at < NOW() - INTERVAL '${days} days'
+    AND status IN ('completed', 'error')
+    RETURNING id
+  `
+  return result.length
+}
+
+export async function resetStuckTasks(hours: number = 2): Promise<number> {
+  const result = await sql`
+    UPDATE task
+    SET status = 'pending', error_message = 'Reiniciado por timeout'
+    WHERE status = 'processing' 
+    AND updated_at < NOW() - INTERVAL '${hours} hours'
+    RETURNING id
+  `
+  return result.length
+}
+
+export async function createEmbeddingTaskSafe(pdfId: string): Promise<{
+  success: boolean;
+  task?: Task;
+  existingTask?: Task;
+  message: string;
+}> {
+  try {
+    const existingTasks = await sql`
+      SELECT id, status, error_message
+      FROM task 
+      WHERE pdf_id = ${pdfId} 
+      AND status IN ('pending', 'processing')
+      ORDER BY created_at DESC
+      LIMIT 1
+    `
+
+    if (existingTasks.length > 0) {
+      return {
+        success: true,
+        existingTask: existingTasks[0] as Task,
+        message: 'Ya existe una tarea para este PDF'
+      }
+    }
+
+    const hasEmbeddings = await hasPDFEmbeddings(pdfId)
+    if (hasEmbeddings) {
+      const completedTask = await sql`
+        SELECT id, status, error_message
+        FROM task 
+        WHERE pdf_id = ${pdfId} AND status = 'completed'
+        LIMIT 1
+      `
+      
+      if (completedTask.length > 0) {
+        return {
+          success: true,
+          existingTask: completedTask[0] as Task,
+          message: 'El PDF ya tiene embeddings generados'
+        }
+      }
+    }
+
+    const newTask = await sql`
+      INSERT INTO task (pdf_id, status, created_at, updated_at)
+      VALUES (${pdfId}, 'pending', NOW(), NOW())
+      RETURNING id, pdf_id, status, error_message, created_at, updated_at
+    `
+
+    return {
+      success: true,
+      task: newTask[0] as Task,
+      message: 'Tarea creada exitosamente'
+    }
+
+  } catch (error) {
+    console.error('Error creando tarea de embedding:', error)
+    return {
+      success: false,
+      message: `Error creando tarea: ${error instanceof Error ? error.message : 'Error desconocido'}`
+    }
+  }
+}
+
+export async function getPDFWithProcessingStatus(pdfId: string): Promise<any> {
+  const result = await sql`
+    SELECT 
+      p.*,
+      t.status as task_status,
+      t.error_message,
+      t.created_at as task_created,
+      t.updated_at as task_updated
+    FROM pdf p
+    LEFT JOIN task t ON p.id = t.pdf_id
+    WHERE p.id = ${pdfId}
+    ORDER BY t.created_at DESC
+    LIMIT 1
+  `
+  
+  return result.length > 0 ? result[0] : null
+}
+
+/*
+- getSemesters()
+- createSemester(name: string)
+- deleteSemester(id: string)
+- getSemesterNameById(id: string)
+- getSubjectsBySemester(semesterId: string)
+- createSubject(name: string, semesterId: string)
+- updateSubject(id: string, name: string)
+- deleteSubject(id: string)
+- getSubjectById(id: string)
+- getPDFsBySubject(subjectId: string)
+- createPDF(filename: string, url: string, subjectId: string)
+- deletePDF(id: string)
+- updatePDFEmbeddings(pdfId: string, embeddingsUrl: string)
+- getVideosBySubject(subjectId: string)
+- createVideo(title: string, url: string, subjectId: string)
+- getQuestionsBySubject(subjectId: string)
+- createQuestion(
+  pregunta: string,
+  respuestaCorrecta: string,
+  respuestasIncorrectas: string[],
+  subjectId: string,
+)
+- createEmbeddingTask(pdfId: string)
+- getPendingTasks(limit = 10)
+- updateTaskStatus(
+  taskId: string,
+  status: "pending" | "processing" | "completed" | "error",
+  errorMessage?: string,
+)
+- getTaskById(taskId: string)
+- getPDFByTaskId(taskId: string)
+- getTaskByPdfId(pdfId: string)
+- getPendingTasksWithPDFInfo(limit: number = 1)
+- updatePDFWithEmbeddings(
+  pdfId: string, 
+  embeddingsUrl: string,
+  totalChunks: number
+)
+- getTaskWithPDFInfo(taskId: string)
+- hasPDFEmbeddings(pdfId: string)
+- getTaskStats()
+- getOldestPendingTask()
+- cleanupOldTasks(days: number = 7)
+- resetStuckTasks(hours: number = 2)
+- createEmbeddingTaskSafe(pdfId: string)
+- getPDFWithProcessingStatus(pdfId: string)
+*/
