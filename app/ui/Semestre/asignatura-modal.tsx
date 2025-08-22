@@ -182,7 +182,7 @@ export function SubjectModal({
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{trigger || defaultTrigger}</DialogTrigger>
-      <DialogContent className="bg-gray-100 max-w-4xl max-h-[90vh]">
+      <DialogContent className="bg-gray-50 max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>
             {editingSubject ? "Editar Asignatura" : "Nueva Asignatura"}

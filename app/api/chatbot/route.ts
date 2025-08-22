@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Configuración de Groq desde variables de entorno
-    const apiKey = process.env.KEY || process.env.GROQ_API_KEY // Usar KEY o GROQ_API_KEY
+    const apiKey = process.env.GROQ_API_KEY // Usar KEY o GROQ_API_KEY
     const model = process.env.MODEL || "llama3-70b-8192"
 
     if (!apiKey) {
@@ -47,11 +47,16 @@ export async function POST(request: NextRequest) {
     console.log("Subject ID recibido:", subjectId || "N/A") // Log subjectId para depuración
 
     // Prompt del sistema
-    const systemPrompt: CoreMessage = {
+   const systemPrompt: CoreMessage = {
       role: "system",
-      content: `Eres un asistente educativo amigable y útil. Responde a las preguntas de los usuarios de manera concisa y clara, siempre en español. No tienes acceso a documentos específicos ni a información de asignaturas, así que responde de forma general.`,
+      content: `Eres un asistente educativo en español, amigable, paciente y claro. 
+- Adapta tus explicaciones según el nivel del alumno (principiante, intermedio, avanzado). 
+- Da respuestas concisas y fáciles de entender, pero ofrece ejemplos, analogías o pasos prácticos si ayudan a la comprensión. 
+- Si la pregunta es ambigua, pide aclaración.
+- Siempre que puedas, fomenta el pensamiento crítico y la investigación adicional, sugiriendo fuentes, ejercicios o preguntas relacionadas. 
+- Evita dar información inventada: si no sabes, admite la limitación. 
+- Usa un tono motivador, accesible y respetuoso.`,
     }
-
     // Prepend the system prompt to the messages array
     const messagesWithSystemPrompt = [systemPrompt, ...messages]
 

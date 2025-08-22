@@ -7,7 +7,7 @@ import { ChatbotModal } from "@/components/chatbot/chatbot-modal";
 import { Menu, FileText, Video, HelpCircle, X, Bot } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { getSubjectDataAction } from "@/app/actions/subject-data-actions";
-import type { Subject } from "@/lib/db"; // <-- CORRECCIÓN AQUÍ: Importar desde database
+import type { Subject } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 
 interface SubjectLayoutProps {
@@ -73,7 +73,9 @@ export default function SubjectLayout({
     return (
       <main className="container mx-auto px-4 py-6">
         <p className="text-red-600">Error: {error}</p>
-        <p className="text-gray-500">Por favor, intenta recargar la página.</p>
+        <p className="text-gray-500">
+          Por favor, intenta recargar la página o contacta al soporte.
+        </p>
       </main>
     );
   }
@@ -102,7 +104,7 @@ export default function SubjectLayout({
       available: subject.videos.length > 0,
     },
     {
-      href: `/asignatura/${subject.id}/examen`,
+      href: `/asignatura/${subject.id}/Examen`,
       icon: HelpCircle,
       label: "Examen",
       count: subject.questions.length,
@@ -210,25 +212,21 @@ export default function SubjectLayout({
               })}
             </nav>
 
-            {/* Botón del Chatbot - visible solo cuando el sidebar está abierto */}
-            <Button
-              onClick={() => setShowChatbotModal(true)}
-              className={`bg-red-600 flex items-center gap-3 p-3 rounded-lg transition-colors min-h-[60px] ${
-                !sidebarOpen ? "bg-red-600" : "hover:bg-red-700 text-white"
-              }`}
-            >
-              <Bot className="h-5 w-5" />
-              {sidebarOpen && (
-                <div className="p-3">
-                  <Button
-                    onClick={() => setShowChatbotModal(true)}
-                    className="w-full bg-red-600 hover:bg-red-700 text-white text-lg py-3 h-auto"
-                  >
-                    TUTOR-IA
-                  </Button>
-                </div>
-              )}
-            </Button>
+            {/* Botón del Chatbot - siempre visible */}
+            <div className="mt-8">
+              <button
+                onClick={() => setShowChatbotModal(true)}
+                className={`flex items-center gap-3 p-3 rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white w-full ${
+                  sidebarOpen ? "justify-start" : "justify-center"
+                }`}
+                title={sidebarOpen ? undefined : "TUTOR-IA"}
+              >
+                <Bot size={20} className="min-w-[20px] min-h-[20px]" />
+                {sidebarOpen && (
+                  <span className="font-medium text-lg">TUTOR-IA</span>
+                )}
+              </button>
+            </div>
           </div>
         </aside>
 

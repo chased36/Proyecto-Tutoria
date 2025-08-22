@@ -2,16 +2,16 @@
 
 import { useRef, useEffect } from "react";
 import { X, Send, Bot, User, Loader2 } from "lucide-react";
-import { useChat } from "ai/react"; // Importar useChat
+import { useChat } from "ai/react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils"; // Asumiendo que tienes esta utilidad para combinar clases
+import { cn } from "@/lib/utils";
 
 interface ChatbotModalProps {
-  subjectId: string; // Mantener subjectId si se quiere para logs o futura expansión
+  subjectId: string;
   subjectName: string;
-  isOpen: boolean; // Añadido para controlar la visibilidad
-  onClose: () => void; // Añadido para cerrar el modal
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 export function ChatbotModal({
@@ -20,7 +20,6 @@ export function ChatbotModal({
   isOpen,
   onClose,
 }: ChatbotModalProps) {
-  // Usamos el hook useChat para manejar la lógica del chat
   const {
     messages,
     input,
@@ -37,8 +36,7 @@ export function ChatbotModal({
         id: "welcome",
         role: "assistant",
         content: `¡Hola! Soy TUTOR-IA.
-
-¿En qué puedo ayudarte?`,
+¿Tienes alguna duda sobre ${subjectName}?`,
       },
     ],
     // Si necesitas pasar subjectId al backend, puedes hacerlo aquí:
@@ -68,11 +66,11 @@ export function ChatbotModal({
   const getMessageIcon = (role: string) => {
     switch (role) {
       case "assistant":
-        return <Bot size={16} className="text-blue-600" />;
+        return <Bot size={16} className="text-red-600" />;
       case "user":
         return <User size={16} className="text-gray-600" />;
       default:
-        return <Bot size={16} className="text-blue-600" />; // Fallback para otros roles si los hubiera
+        return <Bot size={16} className="text-red-600" />; // Fallback para otros roles si los hubiera
     }
   };
 
@@ -94,7 +92,7 @@ export function ChatbotModal({
       <div className="absolute bottom-6 right-6 pointer-events-auto">
         <div className="bg-white rounded-lg shadow-xl w-[400px] h-[600px] flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b bg-blue-600 text-white rounded-t-lg">
+          <div className="flex items-center justify-between p-4 border-b bg-red-600 text-white rounded-t-lg">
             <div className="flex items-center gap-2">
               <Bot size={20} />
               <div>
@@ -106,7 +104,7 @@ export function ChatbotModal({
               {/* Eliminado el botón de prueba de conexión para simplificar */}
               <button
                 onClick={onClose}
-                className="hover:bg-blue-700 p-1 rounded"
+                className="hover:bg-red-700 p-1 rounded"
                 aria-label="Cerrar asistente"
                 title="Cerrar asistente"
               >
@@ -133,7 +131,7 @@ export function ChatbotModal({
                 )}
               >
                 {message.role === "assistant" && (
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-100">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-red-100">
                     {getMessageIcon(message.role)}
                   </div>
                 )}
@@ -157,8 +155,8 @@ export function ChatbotModal({
             ))}
             {isLoading && messages.length > 0 && (
               <div className="flex gap-3 justify-start">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Bot size={16} className="animate-spin text-blue-600" />
+                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Bot size={16} className="animate-spin text-red-600" />
                 </div>
                 <div className="bg-gray-100 text-gray-800 p-3 rounded-lg rounded-bl-none">
                   <div className="flex items-center gap-2">
