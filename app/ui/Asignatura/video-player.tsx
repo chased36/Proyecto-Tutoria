@@ -22,9 +22,6 @@ export function VideoPlayer({ videos }: VideoPlayerProps) {
       <div className="grid gap-4">
         {videos.map((video) => (
           <div key={video.id} className="border rounded-lg overflow-hidden">
-            <div className="p-3 bg-gray-50">
-              <h5 className="font-medium">{video.title}</h5>
-            </div>
             <div className="aspect-video">
               <iframe
                 src={getYouTubeEmbedUrl(video.url)}
