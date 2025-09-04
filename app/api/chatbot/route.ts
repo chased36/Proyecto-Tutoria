@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Configuración de Groq desde variables de entorno
     const apiKey = process.env.GROQ_API_KEY // Usar KEY o GROQ_API_KEY
-    const model = process.env.MODEL || "llama3-70b-8192"
+    const model = process.env.MODEL || "llama-3.1-8b-instant"
 
     if (!apiKey) {
       console.error("❌ GROQ_API_KEY o KEY no está configurada")

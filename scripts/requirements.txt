@@ -8,5 +8,3 @@ pymupdf4llm
 langchain-text-splitters
 requests
 tiktoken
-psycopg2-binary
-

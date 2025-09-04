@@ -1,3 +1,4 @@
+// app/lib/db.ts
 import { neon } from "@neondatabase/serverless"
 import { deleteMultiplePDFsFromBlob, deletePDFFromBlob, deleteEmbeddingsFromBlob } from "./blob"
 
@@ -50,12 +51,16 @@ export type QuestionWithAnswers = Question & {
 }
 
 export type Task = {
-  id: string
-  pdf_id: string
-  status: "pending" | "processing" | "completed" | "error"
-  error_message?: string | null
-  created_at: string
-  updated_at: string
+  id: string;
+  pdf_id: string;
+  status: "pending" | "processing" | "completed" | "error";
+  error_message?: string | null;
+  total_chunks?: number | null;
+  processed_chunks?: number | null;
+  hf_task_id?: string | null;
+  hf_status?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // Funciones para Semestres
@@ -382,8 +387,8 @@ export async function createEmbeddingTask(pdfId: string): Promise<Task> {
     INSERT INTO task (pdf_id, status, created_at, updated_at)
     VALUES (${pdfId}, 'pending', NOW(), NOW())
     RETURNING id, pdf_id, status, error_message, created_at, updated_at
-  `
-  return result[0] as Task
+  `;
+  return result[0] as Task;
 }
 
 export async function getPendingTasks(limit = 10): Promise<Task[]> {
@@ -447,7 +452,7 @@ export async function getTaskByPdfId(pdfId: string): Promise<Task | null> {
   return result.length > 0 ? (result[0] as Task) : null
 }
 
-//Funciones para embeddings nuevos
+// Funciones para embeddings nuevos
 export async function getPendingTasksWithPDFInfo(limit: number = 1): Promise<any[]> {
   const result = await sql`
     SELECT 
@@ -455,20 +460,24 @@ export async function getPendingTasksWithPDFInfo(limit: number = 1): Promise<any
       t.pdf_id,
       t.status as task_status,
       t.error_message,
+      t.total_chunks,
+      t.processed_chunks,
+      t.hf_task_id,
+      t.hf_status,
       t.created_at as task_created,
       t.updated_at as task_updated,
       p.filename,
       p.url as pdf_url,
       p.embeddings_url,
-      p.total_chunks,
+      p.total_chunks as pdf_total_chunks,
       p.asignatura_id
     FROM task t
     INNER JOIN pdf p ON t.pdf_id = p.id
     WHERE t.status = 'pending'
     ORDER BY t.created_at ASC
     LIMIT ${limit}
-  `
-  return result
+  `;
+  return result;
 }
 
 export async function updatePDFWithEmbeddings(
@@ -493,18 +502,21 @@ export async function getTaskWithPDFInfo(taskId: string): Promise<any> {
       t.pdf_id,
       t.status as task_status,
       t.error_message,
+      t.total_chunks,
+      t.processed_chunks,
+      t.hf_task_id,
+      t.hf_status,
       t.created_at as task_created,
       t.updated_at as task_updated,
       p.filename,
       p.url as pdf_url,
       p.embeddings_url,
-      p.total_chunks,
       p.asignatura_id
     FROM task t
     INNER JOIN pdf p ON t.pdf_id = p.id
     WHERE t.id = ${taskId}
-  `
-  return result.length > 0 ? result[0] : null
+  `;
+  return result.length > 0 ? result[0] : null;
 }
 
 export async function hasPDFEmbeddings(pdfId: string): Promise<boolean> {
@@ -664,51 +676,37 @@ export async function getPDFWithProcessingStatus(pdfId: string): Promise<any> {
   return result.length > 0 ? result[0] : null
 }
 
-/*
-- getSemesters()
-- createSemester(name: string)
-- deleteSemester(id: string)
-- getSemesterNameById(id: string)
-- getSubjectsBySemester(semesterId: string)
-- createSubject(name: string, semesterId: string)
-- updateSubject(id: string, name: string)
-- deleteSubject(id: string)
-- getSubjectById(id: string)
-- getPDFsBySubject(subjectId: string)
-- createPDF(filename: string, url: string, subjectId: string)
-- deletePDF(id: string)
-- updatePDFEmbeddings(pdfId: string, embeddingsUrl: string)
-- getVideosBySubject(subjectId: string)
-- createVideo(title: string, url: string, subjectId: string)
-- getQuestionsBySubject(subjectId: string)
-- createQuestion(
-  pregunta: string,
-  respuestaCorrecta: string,
-  respuestasIncorrectas: string[],
-  subjectId: string,
-)
-- createEmbeddingTask(pdfId: string)
-- getPendingTasks(limit = 10)
-- updateTaskStatus(
+// Nuevas funciones para Hugging Face
+export async function updateTaskProgress(
   taskId: string,
-  status: "pending" | "processing" | "completed" | "error",
-  errorMessage?: string,
-)
-- getTaskById(taskId: string)
-- getPDFByTaskId(taskId: string)
-- getTaskByPdfId(pdfId: string)
-- getPendingTasksWithPDFInfo(limit: number = 1)
-- updatePDFWithEmbeddings(
-  pdfId: string, 
-  embeddingsUrl: string,
-  totalChunks: number
-)
-- getTaskWithPDFInfo(taskId: string)
-- hasPDFEmbeddings(pdfId: string)
-- getTaskStats()
-- getOldestPendingTask()
-- cleanupOldTasks(days: number = 7)
-- resetStuckTasks(hours: number = 2)
-- createEmbeddingTaskSafe(pdfId: string)
-- getPDFWithProcessingStatus(pdfId: string)
-*/
+  processedChunks: number,
+  totalChunks: number,
+  status: "processing" | "completed" | "error" = "processing",
+  errorMessage?: string
+): Promise<void> {
+  await sql`
+    UPDATE task
+    SET 
+      status = ${status},
+      processed_chunks = ${processedChunks},
+      total_chunks = ${totalChunks},
+      error_message = ${errorMessage || null},
+      updated_at = NOW()
+    WHERE id = ${taskId}
+  `;
+}
+
+export async function updateHuggingFaceTaskInfo(
+  taskId: string,
+  hfTaskId: string,
+  hfStatus: string
+): Promise<void> {
+  await sql`
+    UPDATE task
+    SET 
+      hf_task_id = ${hfTaskId},
+      hf_status = ${hfStatus},
+      updated_at = NOW()
+    WHERE id = ${taskId}
+  `;
+}

@@ -34,7 +34,6 @@ export default function SubjectLayout({
       setError(null);
       try {
         const result = await getSubjectDataAction(id);
-        // Tu cambio a 'if (result.error)' es correcto y se mantiene
         if (result.error) {
           setError(
             result.error || "Error desconocido al cargar la asignatura."
@@ -115,7 +114,7 @@ export default function SubjectLayout({
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-blue-600 text-white shadow-md sticky top-0 z-20 flex-shrink-0">
+      <header className="bg-blue-600 text-white shadow-md sticky top-0 z-30 flex-shrink-0">
         <nav className="container mx-auto px-4 py-3 flex items-center gap-4">
           {/* Botón de menú - visible en todas las pantallas */}
           <button
@@ -147,7 +146,81 @@ export default function SubjectLayout({
         </nav>
       </header>
 
-      {/* Contenido principal y barra lateral */}
+      {/* Sidebar - Móvil (drawer fijo) */}
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-40
+          bg-blue-200 text-gray-800 shadow-lg border-r
+          transition-transform duration-300 ease-in-out
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+          w-64 h-full md:hidden
+          overflow-y-auto
+        `}
+      >
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-semibold text-gray-800">Navegación</h3>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="hover:bg-gray-100 p-1 rounded"
+              title="Cerrar menú"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <nav className="space-y-2">
+            {sidebarItems.map((item, index) => {
+              const isActive = pathname === item.href;
+              const IconComponent = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.available ? item.href : "#"}
+                  className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                    item.available
+                      ? isActive
+                        ? "bg-blue-300 text-blue-700"
+                        : "hover:bg-gray-200 text-gray-700"
+                      : "text-gray-400 cursor-not-allowed"
+                  }`}
+                  title={item.label}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  <IconComponent
+                    size={20}
+                    className="min-w-[20px] min-h-[20px]"
+                  />
+                  <div className="flex flex-col flex-1">
+                    <span className="text-xs text-gray-500">
+                      Paso {index + 1}
+                    </span>
+                    <span className="font-medium">{item.label}</span>
+                  </div>
+                  {!item.available && (
+                    <span className="text-xs bg-gray-200 px-2 py-1 rounded">
+                      No disponible
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+          {/* Botón del Chatbot para móvil */}
+          <div className="mt-8 p-3">
+            <Button
+              onClick={() => {
+                setShowChatbotModal(true);
+                setSidebarOpen(false);
+              }}
+              className="w-full bg-red-600 hover:bg-red-700 text-white text-lg py-3 h-auto"
+            >
+              TUTOR-IA
+            </Button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Contenido principal y barra lateral de escritorio */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - Escritorio (siempre presente, cambia de ancho) */}
         <aside
@@ -230,89 +303,11 @@ export default function SubjectLayout({
           </div>
         </aside>
 
-        {/* Sidebar - Móvil (drawer fijo) */}
-        <aside
-          className={`
-            fixed inset-y-0 left-0 z-40
-            bg-blue-200 text-gray-800 shadow-lg border-r
-            transition-transform duration-300 ease-in-out
-            ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-            w-64 h-full md:hidden
-            overflow-y-auto
-          `}
-        >
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-semibold text-gray-800">Navegación</h3>
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="hover:bg-gray-100 p-1 rounded"
-                title="Cerrar menú"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <nav className="space-y-2">
-              {sidebarItems.map((item, index) => {
-                const isActive = pathname === item.href;
-                const IconComponent = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.available ? item.href : "#"}
-                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                      item.available
-                        ? isActive
-                          ? "bg-blue-300 text-blue-700"
-                          : "hover:bg-gray-200 text-gray-700"
-                        : "text-gray-400 cursor-not-allowed"
-                    }`}
-                    title={item.label}
-                  >
-                    <IconComponent
-                      size={20}
-                      className="min-w-[20px] min-h-[20px]"
-                    />
-                    <div className="flex flex-col flex-1">
-                      <span className="text-xs text-gray-500">
-                        Paso {index + 1}
-                      </span>
-                      <span className="font-medium">{item.label}</span>
-                    </div>
-                    {!item.available && (
-                      <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                        No disponible
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </nav>
-            {/* Botón del Chatbot para móvil - visible solo cuando el sidebar está abierto */}
-            <div className="mt-8 p-3">
-              <Button
-                onClick={() => setShowChatbotModal(true)}
-                className="w-full bg-red-600 hover:bg-red-700 text-white text-lg py-3 h-auto"
-              >
-                TUTOR-IA
-              </Button>
-            </div>
-          </div>
-        </aside>
-
         {/* Contenido principal */}
         <main className="flex-1 overflow-y-auto">
           <div className="container mx-auto px-4 py-6">{children}</div>
         </main>
       </div>
-
-      {/* Overlay para móvil cuando el sidebar está abierto */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
 
       {/* Chatbot Modal (renderizado condicionalmente) */}
       {subject && showChatbotModal && (
