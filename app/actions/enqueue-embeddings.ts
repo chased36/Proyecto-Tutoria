@@ -1,50 +1,47 @@
-"use server"
+"use server";
 
-import { neon } from "@neondatabase/serverless"
+import { getTaskWithPDFInfo } from "@/lib/db";
 
-const sql = neon(process.env.DATABASE_URL!)
-
-export type EnqueueResult =
-  | { success: true; taskId: string; status: "pending"; createdAt: string }
-  | { success: false; error: string }
-
-export async function enqueueEmbeddingTask(pdfId: string): Promise<EnqueueResult> {
+export async function enqueueEmbeddingGeneration(taskId: string) {
   try {
-    if (!pdfId) return { success: false, error: "pdfId es requerido" }
+    console.log(`🚀 Iniciando encolamiento para la tarea: ${taskId}`);
 
-    const result = await sql`
-      INSERT INTO task (pdf_id, status)
-      VALUES (${pdfId}, 'pending')
-      RETURNING id, status, created_at
-    `
-
-    const t = result[0]
-    return {
-      success: true,
-      taskId: t.id,
-      status: t.status,
-      createdAt: t.created_at,
+    const taskWithPdf = await getTaskWithPDFInfo(taskId);
+    if (!taskWithPdf) {
+      throw new Error("No se encontró la tarea o el PDF asociado.");
     }
-  } catch (err) {
-    console.error("enqueueEmbeddingTask error:", err)
-    return { success: false, error: "No se pudo encolar la tarea" }
-  }
-}
 
-export async function enqueueEmbeddingTasks(pdfIds: string[]): Promise<{
-  success: boolean
-  enqueued: { pdfId: string; taskId?: string; error?: string }[]
-}> {
-  const results: { pdfId: string; taskId?: string; error?: string }[] = []
+    const { pdf_id, pdf_url } = taskWithPdf;
+    const workerUrl = process.env.EMBEDDING_WORKER_URL;
+    const workerSecret = process.env.WORKER_SECRET;
 
-  for (const pdfId of pdfIds) {
-    const res = await enqueueEmbeddingTask(pdfId)
-    if (res.success) {
-      results.push({ pdfId, taskId: res.taskId })
-    } else {
-      results.push({ pdfId, error: res.error })
+    if (!workerUrl || !workerSecret) {
+      console.error("La URL del worker o el secreto no están configurados en .env");
+      throw new Error("Configuración del worker incompleta en el servidor.");
     }
-  }
 
-  return { success: true, enqueued: results }
+    console.log(`📞 Llamando al worker en: ${workerUrl}`);
+
+    fetch(workerUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${workerSecret}`,
+      },
+      body: JSON.stringify({
+        pdf_id: pdf_id,
+        task_id: taskId,
+        pdf_url: pdf_url,
+      }),
+    });
+    
+    console.log(`✅ Tarea ${taskId} encolada exitosamente. El worker la procesará en segundo plano.`);
+
+    return { success: true, message: "La tarea ha sido encolada." };
+
+  } catch (error) {
+    console.error("❌ Error al encolar la tarea de embeddings:", error);
+    // Aquí podrías actualizar el estado de la tarea a 'error' en la DB si lo deseas.
+    return { success: false, error: (error as Error).message };
+  }
 }

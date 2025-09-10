@@ -16,6 +16,7 @@ import {
   type Subject,
 } from "@/lib/db"
 import { uploadMultiplePDFs } from "@/lib/blob"
+import { enqueueEmbeddingGeneration } from "./enqueue-embeddings"
 
 export async function getSemestersAction(): Promise<Semester[]> {
   return await getSemesters()
@@ -67,39 +68,27 @@ export async function createSubjectWithFilesAction(
     const name = formData.get("name") as string
     const semesterId = formData.get("semesterId") as string
 
-    console.log("Nombre:", name)
-    console.log("Semestre ID:", semesterId)
-
     if (!name?.trim()) {
       return { success: false, error: "El nombre de la asignatura es requerido" }
     }
 
-    // Verificar token de Blob antes de proceder
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
       console.error("BLOB_READ_WRITE_TOKEN no está disponible")
       return { success: false, error: "Configuración de almacenamiento no disponible. Contacta al administrador." }
     }
 
-    // Obtener archivos PDF del FormData
     const pdfFiles: File[] = []
     const fileEntries = formData.getAll("pdfs")
 
-    console.log("Archivos recibidos:", fileEntries.length)
-
     for (const entry of fileEntries) {
       if (entry instanceof File && entry.size > 0) {
-        console.log("Archivo válido:", entry.name, "Tamaño:", entry.size)
-
-        // Verificar tamaño del archivo
         if (entry.size > 5 * 1024 * 1024) {
           return { success: false, error: `El archivo ${entry.name} excede el límite de 5MB` }
         }
-
         pdfFiles.push(entry)
       }
     }
 
-    // Obtener enlaces de YouTube
     const youtubeLinks: string[] = []
     let linkIndex = 0
     while (formData.has(`youtubeLink_${linkIndex}`)) {
@@ -110,9 +99,6 @@ export async function createSubjectWithFilesAction(
       linkIndex++
     }
 
-    console.log("Enlaces de YouTube:", youtubeLinks.length)
-
-    // Obtener preguntas
     const questions: { question: string; correctAnswer: string; wrongAnswers: string[] }[] = []
     let questionIndex = 0
     while (formData.has(`question_${questionIndex}`)) {
@@ -137,48 +123,42 @@ export async function createSubjectWithFilesAction(
       questionIndex++
     }
 
-    console.log("Preguntas:", questions.length)
-
-    // Crear la asignatura primero
     console.log("Creando asignatura en la base de datos...")
     const subject = await createSubject(name.trim(), semesterId)
     console.log("Asignatura creada con ID:", subject.id)
 
-    // Subir PDFs a Vercel Blob (solo si hay archivos)
     if (pdfFiles.length > 0) {
       console.log("Subiendo PDFs a Vercel Blob...")
       try {
         const uploadedPDFsData = await uploadMultiplePDFs(pdfFiles)
         console.log("PDFs subidos exitosamente:", uploadedPDFsData.length)
 
-        // Guardar referencias en la base de datos
-        // IMPORTANTE: createPDF ahora crea automáticamente la tarea de embeddings
         for (const pdf of uploadedPDFsData) {
-          await createPDF(pdf.filename, pdf.url, subject.id)
-          console.log(`✅ PDF ${pdf.filename} guardado y tarea de embeddings creada`)
+          // 1. createPDF ahora devuelve el PDF y la Tarea creada
+          const { task } = await createPDF(pdf.filename, pdf.url, subject.id)
+          console.log(`✅ PDF ${pdf.filename} guardado y tarea ${task.id} creada`)
+
+          // 2. NUEVO: Se notifica al worker para que inicie el procesamiento
+          await enqueueEmbeddingGeneration(task.id)
+          console.log(`📞 Worker notificado para procesar la tarea ${task.id}`)
         }
 
         console.log("🔄 Los embeddings se procesarán automáticamente en segundo plano")
       } catch (uploadError) {
-        console.error("Error específico en subida de PDFs:", uploadError)
-        // Eliminar la asignatura si falló la subida de PDFs
-        await deleteSubject(subject.id)
+        console.error("Error específico durante el procesamiento de PDFs:", uploadError)
+        await deleteSubject(subject.id) // Revertir la creación de la asignatura
         return {
           success: false,
-          error: `Error al subir archivos PDF: ${uploadError instanceof Error ? uploadError.message : "Error desconocido"}`,
+          error: `Error al procesar archivos PDF: ${uploadError instanceof Error ? uploadError.message : "Error desconocido"}`,
         }
       }
-    } else {
-      console.log("No hay PDFs para subir")
     }
 
-    // Agregar videos
     for (const url of youtubeLinks) {
       const title = `Video - ${url.split("/").pop() || "YouTube"}`
       await createVideo(title, url, subject.id)
     }
 
-    // Agregar preguntas
     for (const q of questions) {
       await createQuestion(q.question, q.correctAnswer, q.wrongAnswers, subject.id)
     }

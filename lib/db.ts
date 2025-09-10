@@ -1,4 +1,3 @@
-// app/lib/db.ts
 import { neon } from "@neondatabase/serverless"
 import { deleteMultiplePDFsFromBlob, deletePDFFromBlob, deleteEmbeddingsFromBlob } from "./blob"
 
@@ -28,6 +27,7 @@ export type PDF = {
   asignatura_id: string
   created_at: string
   task_status?: "pending" | "processing" | "completed" | "error" | null
+  task_id?: string | null;
 }
 
 export type Video = {
@@ -260,7 +260,8 @@ export async function getPDFsBySubject(subjectId: string): Promise<PDF[]> {
       p.embeddings_url, 
       p.asignatura_id, 
       p.created_at,
-      t.status as task_status
+      t.status as task_status,
+      t.id as task_id -- <-- CAMBIO AÑADIDO
     FROM pdf p
     LEFT JOIN task t ON p.id = t.pdf_id
     WHERE p.asignatura_id = ${subjectId}
@@ -269,7 +270,7 @@ export async function getPDFsBySubject(subjectId: string): Promise<PDF[]> {
   return result as PDF[]
 }
 
-export async function createPDF(filename: string, url: string, subjectId: string): Promise<PDF> {
+export async function createPDF(filename: string, url: string, subjectId: string): Promise<{ pdf: PDF; task: Task }> {
   const result = await sql`
     INSERT INTO pdf (id, filename, url, embeddings_url, asignatura_id, created_at)
     VALUES (gen_random_uuid(), ${filename}, ${url}, NULL, ${subjectId}, NOW())
@@ -277,9 +278,9 @@ export async function createPDF(filename: string, url: string, subjectId: string
   `
 
   const pdf = result[0] as PDF
-  await createEmbeddingTask(pdf.id)
+  const task = await createEmbeddingTask(pdf.id)
 
-  return pdf
+  return { pdf, task }
 }
 
 export async function deletePDF(id: string): Promise<void> {
@@ -418,7 +419,7 @@ export async function updateTaskStatus(
 
 export async function getTaskById(taskId: string): Promise<Task | null> {
   const result = await sql`
-    SELECT id, pdf_id, status, error_message, created_at, updated_at
+    SELECT id, pdf_id, status, error_message, total_chunks, processed_chunks, hf_task_id, hf_status, created_at, updated_at
     FROM task
     WHERE id = ${taskId}
   `

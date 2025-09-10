@@ -23,7 +23,7 @@ export default function LoginPage() {
         if (userData.id && userData.email) {
           console.log("👤 Usuario ya logueado, redirigiendo...");
           // Redirigir según el rol
-          if (userData.email === "admin@admin.com") {
+          if (userData.email === process.env.ADMIN_EMAIL) {
             router.push("/admin");
           } else {
             router.push("/editor");
