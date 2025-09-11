@@ -113,10 +113,8 @@ export default function SubjectLayout({
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-blue-600 text-white shadow-md sticky top-0 z-30 flex-shrink-0">
         <nav className="container mx-auto px-4 py-3 flex items-center gap-4">
-          {/* Botón de menú - visible en todas las pantallas */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="hover:bg-blue-700 p-2 rounded-md transition-colors"
@@ -125,7 +123,6 @@ export default function SubjectLayout({
             <Menu size={20} />
           </button>
 
-          {/* Navegación de breadcrumb */}
           <div className="flex items-center gap-4 flex-wrap">
             <Link href="/" className="hover:underline">
               ← Inicio
@@ -146,7 +143,6 @@ export default function SubjectLayout({
         </nav>
       </header>
 
-      {/* Sidebar - Móvil (drawer fijo) */}
       <aside
         className={`
           fixed inset-y-0 left-0 z-40
@@ -205,7 +201,6 @@ export default function SubjectLayout({
               );
             })}
           </nav>
-          {/* Botón del Chatbot para móvil */}
           <div className="mt-8 p-3">
             <Button
               onClick={() => {
@@ -220,9 +215,7 @@ export default function SubjectLayout({
         </div>
       </aside>
 
-      {/* Contenido principal y barra lateral de escritorio */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar - Escritorio (siempre presente, cambia de ancho) */}
         <aside
           className={`
             flex-shrink-0
@@ -285,7 +278,6 @@ export default function SubjectLayout({
               })}
             </nav>
 
-            {/* Botón del Chatbot - siempre visible */}
             <div className="mt-8">
               <button
                 onClick={() => setShowChatbotModal(true)}

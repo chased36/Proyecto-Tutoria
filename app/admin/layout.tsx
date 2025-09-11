@@ -5,7 +5,7 @@ import type React from "react";
 import Link from "next/link";
 import { useState } from "react";
 import { Menu, BookOpen, Users, LogOut, Home } from "lucide-react";
-import { AuthGuard } from "@/app/ui/auth-guard";
+import { AuthGuard } from "@/components/auth-guard";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { AdminAuthProvider } from "./auth-provider";

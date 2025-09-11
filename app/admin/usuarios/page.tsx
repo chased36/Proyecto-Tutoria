@@ -76,7 +76,7 @@ export default function UsuariosPage() {
         console.log("✅ Usuario creado exitosamente");
         setFormData({ nombre: "", email: "", password: "" });
         setIsModalOpen(false);
-        await loadUsers(); // Recargar la lista
+        await loadUsers();
       } else {
         console.error("❌ Error creando usuario:", result.error);
         alert(result.error || "Error al crear usuario");
@@ -90,7 +90,6 @@ export default function UsuariosPage() {
   };
 
   const handleDeleteUser = async (id: string, email: string) => {
-    // Prevenir que el admin se elimine a sí mismo
     if (email === "admin@admin.com") {
       alert("No puedes eliminar la cuenta de administrador principal");
       return;
@@ -135,7 +134,6 @@ export default function UsuariosPage() {
         </Button>
       </div>
 
-      {/* Modal personalizado */}
       {isModalOpen && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-gray-50 rounded-lg p-6 w-full max-w-md mx-4">

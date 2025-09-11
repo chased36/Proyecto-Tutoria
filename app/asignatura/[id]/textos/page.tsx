@@ -1,5 +1,5 @@
 import { getSubjectById } from "@/lib/db";
-import { PDFList } from "@/app/ui/Asignatura/PDFList";
+import { PDFList } from "@/components/ui/Asignatura/PDFList";
 
 type Props = {
   params: Promise<{

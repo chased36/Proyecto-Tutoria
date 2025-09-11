@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getSubjectById } from "@/lib/db";
-import { QuizComponent } from "@/app/ui/Asignatura/quiz-component";
+import { QuizComponent } from "@/components/ui/Asignatura/quiz-component";
 
 interface PageProps {
   params: Promise<{

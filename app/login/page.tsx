@@ -14,7 +14,6 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Verificar si ya está logueado al cargar la página
   useEffect(() => {
     const savedUser = localStorage.getItem("user");
     if (savedUser) {
@@ -22,7 +21,6 @@ export default function LoginPage() {
         const userData = JSON.parse(savedUser);
         if (userData.id && userData.email) {
           console.log("👤 Usuario ya logueado, redirigiendo...");
-          // Redirigir según el rol
           if (userData.email === process.env.ADMIN_EMAIL) {
             router.push("/admin");
           } else {
@@ -52,16 +50,13 @@ export default function LoginPage() {
       });
 
       if (result.success && result.user) {
-        // Login exitoso - guardar usuario en localStorage y cookies
         const userString = JSON.stringify(result.user);
         localStorage.setItem("user", userString);
 
-        // Guardar también en cookies para el middleware
-        document.cookie = `user=${userString}; path=/; max-age=86400`; // 24 horas
+        document.cookie = `user=${userString}; path=/; max-age=86400`;
 
         console.log("✅ Sesión guardada, redirigiendo según rol...");
 
-        // Redirigir según el rol del usuario
         if (result.user.email === "admin@admin.com") {
           console.log("🔑 Redirigiendo a panel de administrador");
           router.push("/admin");

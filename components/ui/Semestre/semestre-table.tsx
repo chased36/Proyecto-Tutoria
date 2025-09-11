@@ -150,7 +150,6 @@ export function SemesterTable({
         </Card>
       ))}
 
-      {/* Modal para editar asignatura */}
       {editingSubject && (
         <SubjectModal
           semesterId={editingSubject.semesterId}

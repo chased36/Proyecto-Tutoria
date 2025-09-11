@@ -11,7 +11,6 @@ export type User = {
   role?: "admin" | "editor"
 }
 
-// Funciones para usuarios
 export async function getUsers(): Promise<User[]> {
   const result = await sql`
     SELECT id, nombre, email, created_at 
@@ -25,7 +24,6 @@ export async function getUsers(): Promise<User[]> {
 }
 
 export async function createUser(nombre: string, email: string, password: string): Promise<User> {
-  // Hashear la contraseña con bcrypt
   const hashedPassword = await bcrypt.hash(password, 10)
 
   const result = await sql`
@@ -63,7 +61,6 @@ export async function authenticateUser(email: string, password: string): Promise
     const user = result[0]
     console.log("👤 Usuario encontrado:", { id: user.id, nombre: user.nombre, email: user.email })
 
-    // Verificar la contraseña con bcrypt
     console.log("🔑 Verificando contraseña...")
     const isValidPassword = await bcrypt.compare(password, user.password)
 
@@ -76,7 +73,6 @@ export async function authenticateUser(email: string, password: string): Promise
 
     console.log("✅ Autenticación exitosa")
 
-    // Retornar usuario sin la contraseña y con rol
     return {
       id: user.id,
       nombre: user.nombre,

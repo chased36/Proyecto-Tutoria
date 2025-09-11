@@ -1,4 +1,3 @@
-// app/asignatura/[id]/videos/page.tsx
 import { getSubjectById } from "@/lib/db";
 import { VideoPlayer } from "@/app/ui/Asignatura/video-player";
 import { notFound } from "next/navigation";

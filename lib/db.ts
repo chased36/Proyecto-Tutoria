@@ -26,7 +26,7 @@ export type PDF = {
   embeddings_url?: string | null
   asignatura_id: string
   created_at: string
-  task_status?: "pending" | "processing" | "completed" | "error" | null
+  task_status?: "pending" | "processing" | "done" | "error" | null
   task_id?: string | null;
 }
 
@@ -53,7 +53,7 @@ export type QuestionWithAnswers = Question & {
 export type Task = {
   id: string;
   pdf_id: string;
-  status: "pending" | "processing" | "completed" | "error";
+  status: "pending" | "processing" | "done" | "error";
   error_message?: string | null;
   total_chunks?: number | null;
   processed_chunks?: number | null;
@@ -171,6 +171,13 @@ export async function updateSubject(id: string, name: string): Promise<void> {
 export async function deleteSubject(id: string): Promise<void> {
   console.log(`Iniciando eliminación de la asignatura con ID: ${id}`)
 
+  const pdfsToDelete = await sql`SELECT id FROM pdf WHERE asignatura_id = ${id}`
+  if (pdfsToDelete.length > 0) {
+    const pdfIds = pdfsToDelete.map((p: any) => p.id);
+    await sql`DELETE FROM embedding_chunks WHERE pdf_id = ANY(${pdfIds})`;
+    console.log(`Eliminados chunks de ${pdfIds.length} PDFs.`);
+  }
+
   const pdfs = await sql`
     SELECT id, url, embeddings_url FROM pdf WHERE asignatura_id = ${id}
   `
@@ -261,7 +268,7 @@ export async function getPDFsBySubject(subjectId: string): Promise<PDF[]> {
       p.asignatura_id, 
       p.created_at,
       t.status as task_status,
-      t.id as task_id -- <-- CAMBIO AÑADIDO
+      t.id as task_id
     FROM pdf p
     LEFT JOIN task t ON p.id = t.pdf_id
     WHERE p.asignatura_id = ${subjectId}
@@ -284,6 +291,8 @@ export async function createPDF(filename: string, url: string, subjectId: string
 }
 
 export async function deletePDF(id: string): Promise<void> {
+  await sql`DELETE FROM embedding_chunks WHERE pdf_id = ${id}`;
+
   const pdf = await sql`
     SELECT url, embeddings_url FROM pdf WHERE id = ${id}
   `
@@ -298,14 +307,6 @@ export async function deletePDF(id: string): Promise<void> {
 
     await sql`DELETE FROM pdf WHERE id = ${id}`
   }
-}
-
-export async function updatePDFEmbeddings(pdfId: string, embeddingsUrl: string): Promise<void> {
-  await sql`
-    UPDATE pdf 
-    SET embeddings_url = ${embeddingsUrl}
-    WHERE id = ${pdfId}
-  `
 }
 
 // Funciones para Videos
@@ -382,7 +383,7 @@ export async function createQuestion(
   } as QuestionWithAnswers
 }
 
-// Funciones para Tareas de Embeddings existentes
+// Funciones para tareas de Embeddings
 export async function createEmbeddingTask(pdfId: string): Promise<Task> {
   const result = await sql`
     INSERT INTO task (pdf_id, status, created_at, updated_at)
@@ -392,108 +393,13 @@ export async function createEmbeddingTask(pdfId: string): Promise<Task> {
   return result[0] as Task;
 }
 
-export async function getPendingTasks(limit = 10): Promise<Task[]> {
-  const result = await sql`
-    SELECT id, pdf_id, status, error_message, created_at, updated_at
-    FROM task
-    WHERE status = 'pending'
-    ORDER BY created_at ASC
-    LIMIT ${limit}
-  `
-  return result as Task[]
-}
-
-export async function updateTaskStatus(
-  taskId: string,
-  status: "pending" | "processing" | "completed" | "error",
-  errorMessage?: string,
-): Promise<void> {
-  await sql`
-    UPDATE task
-    SET status = ${status}, 
-        error_message = ${errorMessage || null}, 
-        updated_at = NOW()
-    WHERE id = ${taskId}
-  `
-}
-
 export async function getTaskById(taskId: string): Promise<Task | null> {
   const result = await sql`
-    SELECT id, pdf_id, status, error_message, total_chunks, processed_chunks, hf_task_id, hf_status, created_at, updated_at
+    SELECT *
     FROM task
     WHERE id = ${taskId}
   `
   return result.length > 0 ? (result[0] as Task) : null
-}
-
-export async function getPDFByTaskId(taskId: string): Promise<{ pdf: PDF } | null> {
-  const result = await sql`
-    SELECT p.id, p.filename, p.url, p.embeddings_url, p.asignatura_id, p.created_at
-    FROM pdf p
-    INNER JOIN task t ON t.pdf_id = p.id
-    WHERE t.id = ${taskId}
-  `
-
-  if (result.length === 0) {
-    return null
-  }
-
-  return { pdf: result[0] as PDF }
-}
-
-export async function getTaskByPdfId(pdfId: string): Promise<Task | null> {
-  const result = await sql`
-    SELECT id, pdf_id, status, error_message, created_at, updated_at
-    FROM task
-    WHERE pdf_id = ${pdfId}
-    ORDER BY created_at DESC
-    LIMIT 1
-  `
-
-  return result.length > 0 ? (result[0] as Task) : null
-}
-
-// Funciones para embeddings nuevos
-export async function getPendingTasksWithPDFInfo(limit: number = 1): Promise<any[]> {
-  const result = await sql`
-    SELECT 
-      t.id as task_id,
-      t.pdf_id,
-      t.status as task_status,
-      t.error_message,
-      t.total_chunks,
-      t.processed_chunks,
-      t.hf_task_id,
-      t.hf_status,
-      t.created_at as task_created,
-      t.updated_at as task_updated,
-      p.filename,
-      p.url as pdf_url,
-      p.embeddings_url,
-      p.total_chunks as pdf_total_chunks,
-      p.asignatura_id
-    FROM task t
-    INNER JOIN pdf p ON t.pdf_id = p.id
-    WHERE t.status = 'pending'
-    ORDER BY t.created_at ASC
-    LIMIT ${limit}
-  `;
-  return result;
-}
-
-export async function updatePDFWithEmbeddings(
-  pdfId: string, 
-  embeddingsUrl: string,
-  totalChunks: number
-): Promise<void> {
-  await sql`
-    UPDATE pdf
-    SET 
-      embeddings_url = ${embeddingsUrl},
-      total_chunks = ${totalChunks},
-      updated_at = NOW()
-    WHERE id = ${pdfId}
-  `
 }
 
 export async function getTaskWithPDFInfo(taskId: string): Promise<any> {
@@ -503,12 +409,6 @@ export async function getTaskWithPDFInfo(taskId: string): Promise<any> {
       t.pdf_id,
       t.status as task_status,
       t.error_message,
-      t.total_chunks,
-      t.processed_chunks,
-      t.hf_task_id,
-      t.hf_status,
-      t.created_at as task_created,
-      t.updated_at as task_updated,
       p.filename,
       p.url as pdf_url,
       p.embeddings_url,
@@ -520,19 +420,24 @@ export async function getTaskWithPDFInfo(taskId: string): Promise<any> {
   return result.length > 0 ? result[0] : null;
 }
 
-export async function hasPDFEmbeddings(pdfId: string): Promise<boolean> {
-  const result = await sql`
-    SELECT embeddings_url 
-    FROM pdf 
-    WHERE id = ${pdfId} AND embeddings_url IS NOT NULL
+export async function updateTaskStatus(
+  taskId: string,
+  status: "pending" | "processing" | "done" | "error",
+  errorMessage?: string,
+): Promise<void> {
+  await sql`
+    UPDATE task
+    SET status = ${status}, 
+        error_message = ${errorMessage || null}, 
+        updated_at = NOW()
+    WHERE id = ${taskId}
   `
-  return result.length > 0
 }
 
 export async function getTaskStats(): Promise<{
   pending: number;
   processing: number;
-  completed: number;
+  done: number;
   error: number;
   total: number;
 }> {
@@ -544,170 +449,61 @@ export async function getTaskStats(): Promise<{
     GROUP BY status
   `
   
-  const stats = {
+  const stats: { [key: string]: number, total: number } = {
     pending: 0,
     processing: 0,
-    completed: 0,
+    done: 0,
     error: 0,
     total: 0
   }
   
   result.forEach((row: any) => {
-    stats[row.status as keyof typeof stats] = parseInt(row.count)
+    if (stats.hasOwnProperty(row.status)) {
+        stats[row.status] = parseInt(row.count)
+    }
     stats.total += parseInt(row.count)
   })
   
-  return stats
+  return stats as {
+    pending: number;
+    processing: number;
+    done: number;
+    error: number;
+    total: number;
+  };
 }
 
-export async function getOldestPendingTask(): Promise<any> {
-  const result = await sql`
-    SELECT 
-      t.id,
-      t.created_at,
-      p.filename
-    FROM task t
-    INNER JOIN pdf p ON t.pdf_id = p.id
-    WHERE t.status = 'pending'
-    ORDER BY t.created_at ASC
-    LIMIT 1
-  `
-  return result.length > 0 ? result[0] : null
-}
+// Funciones para RAG
+export async function insertPdfChunks(
+  pdfId: string,
+  asignaturaId: string,
+  chunks: { text: string; embedding: number[] }[]
+): Promise<void> {
+  await sql`DELETE FROM embedding_chunks WHERE pdf_id = ${pdfId}`;
+  console.log(`🧹 Chunks antiguos del PDF ${pdfId} eliminados.`);
 
-export async function cleanupOldTasks(days: number = 7): Promise<number> {
-  const result = await sql`
-    DELETE FROM task
-    WHERE created_at < NOW() - INTERVAL '${days} days'
-    AND status IN ('completed', 'error')
-    RETURNING id
-  `
-  return result.length
-}
-
-export async function resetStuckTasks(hours: number = 2): Promise<number> {
-  const result = await sql`
-    UPDATE task
-    SET status = 'pending', error_message = 'Reiniciado por timeout'
-    WHERE status = 'processing' 
-    AND updated_at < NOW() - INTERVAL '${hours} hours'
-    RETURNING id
-  `
-  return result.length
-}
-
-export async function createEmbeddingTaskSafe(pdfId: string): Promise<{
-  success: boolean;
-  task?: Task;
-  existingTask?: Task;
-  message: string;
-}> {
-  try {
-    const existingTasks = await sql`
-      SELECT id, status, error_message
-      FROM task 
-      WHERE pdf_id = ${pdfId} 
-      AND status IN ('pending', 'processing')
-      ORDER BY created_at DESC
-      LIMIT 1
-    `
-
-    if (existingTasks.length > 0) {
-      return {
-        success: true,
-        existingTask: existingTasks[0] as Task,
-        message: 'Ya existe una tarea para este PDF'
-      }
-    }
-
-    const hasEmbeddings = await hasPDFEmbeddings(pdfId)
-    if (hasEmbeddings) {
-      const completedTask = await sql`
-        SELECT id, status, error_message
-        FROM task 
-        WHERE pdf_id = ${pdfId} AND status = 'completed'
-        LIMIT 1
+  await sql.transaction(
+    chunks.map(chunk => 
+      sql`
+        INSERT INTO embedding_chunks (pdf_id, asignatura_id, chunk_text, embedding)
+        VALUES (${pdfId}, ${asignaturaId}, ${chunk.text}, ${JSON.stringify(chunk.embedding)})
       `
-      
-      if (completedTask.length > 0) {
-        return {
-          success: true,
-          existingTask: completedTask[0] as Task,
-          message: 'El PDF ya tiene embeddings generados'
-        }
-      }
-    }
-
-    const newTask = await sql`
-      INSERT INTO task (pdf_id, status, created_at, updated_at)
-      VALUES (${pdfId}, 'pending', NOW(), NOW())
-      RETURNING id, pdf_id, status, error_message, created_at, updated_at
-    `
-
-    return {
-      success: true,
-      task: newTask[0] as Task,
-      message: 'Tarea creada exitosamente'
-    }
-
-  } catch (error) {
-    console.error('Error creando tarea de embedding:', error)
-    return {
-      success: false,
-      message: `Error creando tarea: ${error instanceof Error ? error.message : 'Error desconocido'}`
-    }
-  }
+    )
+  );
+  console.log(`✅ Insertados ${chunks.length} nuevos chunks para el PDF ${pdfId}`);
 }
 
-export async function getPDFWithProcessingStatus(pdfId: string): Promise<any> {
+export async function findSimilarChunks(
+  asignaturaId: string,
+  queryEmbedding: number[],
+  match_count: number = 5
+): Promise<{ chunk_text: string }[]> {
   const result = await sql`
-    SELECT 
-      p.*,
-      t.status as task_status,
-      t.error_message,
-      t.created_at as task_created,
-      t.updated_at as task_updated
-    FROM pdf p
-    LEFT JOIN task t ON p.id = t.pdf_id
-    WHERE p.id = ${pdfId}
-    ORDER BY t.created_at DESC
-    LIMIT 1
-  `
-  
-  return result.length > 0 ? result[0] : null
-}
-
-// Nuevas funciones para Hugging Face
-export async function updateTaskProgress(
-  taskId: string,
-  processedChunks: number,
-  totalChunks: number,
-  status: "processing" | "completed" | "error" = "processing",
-  errorMessage?: string
-): Promise<void> {
-  await sql`
-    UPDATE task
-    SET 
-      status = ${status},
-      processed_chunks = ${processedChunks},
-      total_chunks = ${totalChunks},
-      error_message = ${errorMessage || null},
-      updated_at = NOW()
-    WHERE id = ${taskId}
+    SELECT chunk_text
+    FROM embedding_chunks
+    WHERE asignatura_id = ${asignaturaId}
+    ORDER BY embedding <=> ${JSON.stringify(queryEmbedding)}
+    LIMIT ${match_count}
   `;
-}
-
-export async function updateHuggingFaceTaskInfo(
-  taskId: string,
-  hfTaskId: string,
-  hfStatus: string
-): Promise<void> {
-  await sql`
-    UPDATE task
-    SET 
-      hf_task_id = ${hfTaskId},
-      hf_status = ${hfStatus},
-      updated_at = NOW()
-    WHERE id = ${taskId}
-  `;
+  return result as { chunk_text: string }[];
 }

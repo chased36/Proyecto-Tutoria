@@ -41,7 +41,6 @@ export async function enqueueEmbeddingGeneration(taskId: string) {
 
   } catch (error) {
     console.error("❌ Error al encolar la tarea de embeddings:", error);
-    // Aquí podrías actualizar el estado de la tarea a 'error' en la DB si lo deseas.
     return { success: false, error: (error as Error).message };
   }
 }

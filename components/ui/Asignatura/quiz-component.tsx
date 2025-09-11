@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { QuestionWithAnswers } from "@/lib/db";
-import { getSubjectById } from "@/lib/db"; // Importación requerida
 
 interface QuizComponentProps {
   questions: QuestionWithAnswers[];

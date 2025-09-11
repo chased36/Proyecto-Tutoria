@@ -3,7 +3,6 @@ import { getTaskById, getTaskStats, getTaskWithPDFInfo, updateTaskStatus } from 
 
 export async function GET(request: Request, { params }: { params: Promise<{ taskId: string }> }) {
   try {
-    // Await params before accessing properties
     const { taskId } = await params
 
     if (!taskId) {
@@ -35,7 +34,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ task
       task,
     })
   } catch (error: any) {
-    // NOTE: It's better to log the awaited taskId if possible, but it might not be available in case of an early error.
     console.error(`💥 Error obteniendo estado de tarea:`, error)
 
     const errorMessage = error.message || ""
@@ -87,7 +85,6 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request, { params }: { params: Promise<{ taskId: string }> }) {
   try {
-    // Await params before accessing properties
     const { taskId } = await params
 
     if (!taskId) {

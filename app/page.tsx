@@ -9,10 +9,8 @@ export default async function Home({
   const resolvedSearchParams = await searchParams;
   const selectedSemester = resolvedSearchParams.semester as string | undefined;
 
-  // Obtener todos los semestres de la base de datos
   const semesters = await getSemesters();
 
-  // Si hay un semestre seleccionado, obtener sus asignaturas
   let currentSemester = null;
   let subjects: Subject[] = [];
 

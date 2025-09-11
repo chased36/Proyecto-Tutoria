@@ -13,25 +13,20 @@ export default async function SubjectPage({ params }: SubjectPageProps) {
   console.log("Buscando asignatura con ID:", id);
 
   try {
-    // Buscar la asignatura directamente por ID
     const subject = await getSubjectById(id);
 
-    // Si no se encuentra la asignatura, mostrar página 404
     if (!subject) {
       console.log("Asignatura no encontrada, redirigiendo a 404");
       notFound();
       return null;
     }
 
-    // Obtener el nombre del semestre
     const semesterName = await getSemesterNameById(subject.semestre_id);
 
     return (
       <div className="max-w-4xl mx-auto p-6">
-        {/* Título */}
         <h1 className="text-3xl font-bold mb-6">{subject.name}</h1>
 
-        {/* Accesos rápidos a secciones */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           {subject.pdfs.length > 0 && (
             <Link
@@ -70,7 +65,6 @@ export default async function SubjectPage({ params }: SubjectPageProps) {
           )}
         </div>
 
-        {/* Mensaje si no hay contenido */}
         {subject.pdfs.length === 0 &&
           subject.videos.length === 0 &&
           subject.questions.length === 0 && (

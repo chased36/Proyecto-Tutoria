@@ -134,11 +134,9 @@ export async function createSubjectWithFilesAction(
         console.log("PDFs subidos exitosamente:", uploadedPDFsData.length)
 
         for (const pdf of uploadedPDFsData) {
-          // 1. createPDF ahora devuelve el PDF y la Tarea creada
           const { task } = await createPDF(pdf.filename, pdf.url, subject.id)
           console.log(`✅ PDF ${pdf.filename} guardado y tarea ${task.id} creada`)
 
-          // 2. NUEVO: Se notifica al worker para que inicie el procesamiento
           await enqueueEmbeddingGeneration(task.id)
           console.log(`📞 Worker notificado para procesar la tarea ${task.id}`)
         }
@@ -146,7 +144,7 @@ export async function createSubjectWithFilesAction(
         console.log("🔄 Los embeddings se procesarán automáticamente en segundo plano")
       } catch (uploadError) {
         console.error("Error específico durante el procesamiento de PDFs:", uploadError)
-        await deleteSubject(subject.id) // Revertir la creación de la asignatura
+        await deleteSubject(subject.id)
         return {
           success: false,
           error: `Error al procesar archivos PDF: ${uploadError instanceof Error ? uploadError.message : "Error desconocido"}`,
@@ -162,7 +160,6 @@ export async function createSubjectWithFilesAction(
     for (const q of questions) {
       await createQuestion(q.question, q.correctAnswer, q.wrongAnswers, subject.id)
     }
-
     console.log("=== Asignatura creada exitosamente (embeddings en proceso) ===")
     revalidatePath("/admin/semestres")
     return {

@@ -1,89 +1,69 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { streamText } from "ai" // Importar streamText del AI SDK
-import { groq } from "@ai-sdk/groq" // Importar groq del AI SDK Groq provider
-import type { CoreMessage } from "ai" // Importar CoreMessage para tipado
+import { type NextRequest, NextResponse } from "next/server";
+import { streamText, type CoreMessage } from "ai";
+import { groq } from "@ai-sdk/groq";
+import { findSimilarChunks } from "@/lib/db";
+import { HfInference, type FeatureExtractionOutput } from "@huggingface/inference";
 
-// Permitir respuestas hasta 5 minutos (para evitar timeouts en respuestas largas)
-export const maxDuration = 300
+export const maxDuration = 300;
+
+const hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
 
 export async function POST(request: NextRequest) {
-  console.log("🚀 Iniciando request al chatbot (AI SDK Groq)...")
-
   try {
-    // Obtener el cuerpo completo de la solicitud
-    const requestBody = await request.json()
-    console.log("Incoming request body:", JSON.stringify(requestBody, null, 2))
+    const { messages, subjectId }: { messages: CoreMessage[]; subjectId: string } = await request.json();
 
-    // Extraer 'messages' y 'subjectId' del cuerpo de la solicitud
-    // Asegurarse de que 'messages' sea un array, si no, usar un array vacío
-    const messages: CoreMessage[] = Array.isArray(requestBody.messages) ? requestBody.messages : []
-    const subjectId: string | undefined = requestBody.subjectId // Capturar subjectId si se envía
-
-    // Si 'messages' no es un array válido, devolver un error 400
-    if (!Array.isArray(messages)) {
-      console.error("❌ 'messages' no es un array o está ausente en el cuerpo de la solicitud.")
-      return NextResponse.json(
-        { success: false, error: "Formato de solicitud inválido: 'messages' es requerido y debe ser un array." },
-        { status: 400 },
-      )
+    if (!subjectId) {
+      throw new Error("El ID de la asignatura (subjectId) es requerido.");
     }
 
-    // Configuración de Groq desde variables de entorno
-    const apiKey = process.env.GROQ_API_KEY // Usar KEY o GROQ_API_KEY
-    const model = process.env.MODEL || "llama-3.1-8b-instant"
+    const userQuery = messages[messages.length - 1]?.content;
+    if (typeof userQuery !== "string") {
+      throw new Error("La pregunta del usuario no es válida.");
+    }
+    console.log(`🔎 Consulta del usuario: "${userQuery}" para la asignatura ${subjectId}`);
 
-    if (!apiKey) {
-      console.error("❌ GROQ_API_KEY o KEY no está configurada")
-      return NextResponse.json(
-        { success: false, error: "API Key de Groq no configurada. Contacta al administrador." },
-        { status: 500 },
-      )
+    const embeddingResponse: FeatureExtractionOutput = await hf.featureExtraction({
+      model: "sentence-transformers/multi-qa-mpnet-base-dot-v1",
+      inputs: userQuery,
+    });
+
+    let embedding: number[];
+
+    if (Array.isArray(embeddingResponse) && typeof embeddingResponse[0] === 'number') {
+      embedding = embeddingResponse as number[];
+    } else if (Array.isArray(embeddingResponse) && Array.isArray(embeddingResponse[0])) {
+      embedding = embeddingResponse[0] as number[];
+    } else {
+      console.error("Estructura de embedding inesperada:", embeddingResponse);
+      throw new Error("La respuesta de la API de embeddings no tuvo un formato de vector válido.");
     }
 
-    console.log("🤖 Configuración de Groq (AI SDK):")
-    console.log("🧠 Modelo:", model)
-    console.log("🔑 API Key configurada:", !!apiKey)
-    console.log("🔑 API Key preview:", apiKey.substring(0, 10) + "...")
-    console.log("Subject ID recibido:", subjectId || "N/A") // Log subjectId para depuración
+    console.log("✔️ Embedding de la consulta creado.");
 
-    // Prompt del sistema
-   const systemPrompt: CoreMessage = {
+    const contextChunks = await findSimilarChunks(subjectId, embedding, 5);
+    console.log(`📚 Encontrados ${contextChunks.length} chunks de contexto.`);
+
+    const contextText = contextChunks.map((chunk) => `- ${chunk.chunk_text}`).join("\n");
+
+    const augmentedSystemPrompt: CoreMessage = {
       role: "system",
-      content: `Eres un asistente educativo en español, amigable, paciente y claro. 
-- Adapta tus explicaciones según el nivel del alumno (principiante, intermedio, avanzado). 
-- Da respuestas concisas y fáciles de entender, pero ofrece ejemplos, analogías o pasos prácticos si ayudan a la comprensión. 
-- Si la pregunta es ambigua, pide aclaración.
-- Siempre que puedas, fomenta el pensamiento crítico y la investigación adicional, sugiriendo fuentes, ejercicios o preguntas relacionadas. 
-- Evita dar información inventada: si no sabes, admite la limitación. 
-- Usa un tono motivador, accesible y respetuoso.`,
-    }
-    // Prepend the system prompt to the messages array
-    const messagesWithSystemPrompt = [systemPrompt, ...messages]
+      content: `Eres un asistente educativo experto llamado TUTOR-IA. Tu tarea es responder a la pregunta del usuario basándote ÚNICA Y EXCLUSIVamente en el siguiente contexto extraído de los documentos de la asignatura. Si la respuesta no se encuentra en el contexto, di "Lo siento, no tengo suficiente información en los documentos para responder a esa pregunta." No inventes información.
 
-    // Usar streamText del AI SDK
-    const result = streamText({
-      model: groq(model), // Usar el modelo de Groq del AI SDK
-      messages: messagesWithSystemPrompt,
-      maxTokens: 400, // Mantener un límite razonable
-      temperature: 0.7, // Mantener una temperatura para respuestas variadas
-    })
+CONTEXTO:
+${contextText}
+`,
+    };
+    const result = await streamText({
+      model: groq(process.env.MODEL || "llama-3.1-8b-instant"),
+      messages: [augmentedSystemPrompt, ...messages],
+    });
+    console.log("✅ Stream de Groq iniciado con contexto RAG.");
 
-    console.log("✅ Stream de Groq iniciado.")
-
-    // Devolver el stream de texto directamente al cliente
-    return result.toDataStreamResponse()
+    return result.toDataStreamResponse();
+    
   } catch (error) {
-    console.error("❌ Error general en chatbot:", error)
-
-    // Respuesta de error simplificada para el cliente
-    return NextResponse.json(
-      {
-        success: false,
-        error: `Lo siento, estoy experimentando dificultades técnicas en este momento. (${
-          error instanceof Error ? error.message : "Error desconocido"
-        })`,
-      },
-      { status: 500 },
-    )
+    console.error("❌ Error en el chatbot RAG:", error);
+    const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

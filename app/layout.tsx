@@ -1,6 +1,5 @@
-// app/layout.tsx
 import type { Metadata } from "next";
-import "./ui/globals.css";
+import "@/components/globals.css";
 import Image from "next/image";
 import Izt from "../public/LogoOro.png";
 import Link from "next/link";

@@ -11,15 +11,14 @@ import {
   deleteSubjectAction,
 } from "@/app/actions/semestre-actions";
 import type { Semester, Subject } from "@/lib/db";
-import { SemesterForm } from "@/app/ui/Semestre/semestre-form";
-import { SemesterTable } from "@/app/ui/Semestre/semestre-table";
+import { SemesterForm } from "@/components/ui/Semestre/semestre-form";
+import { SemesterTable } from "@/components/ui/Semestre/semestre-table";
 
 export default function EditorSemestreAdminPage() {
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [subjects, setSubjects] = useState<Record<string, Subject[]>>({});
   const [loading, setLoading] = useState(true);
 
-  // Cargar datos iniciales
   useEffect(() => {
     loadSemesters();
   }, []);
@@ -30,7 +29,6 @@ export default function EditorSemestreAdminPage() {
       const semestersData = await getSemestersAction();
       setSemesters(semestersData);
 
-      // Cargar asignaturas para cada semestre
       const subjectsData: Record<string, Subject[]> = {};
       for (const semester of semestersData) {
         const semesterSubjects = await getSubjectsBySemesterAction(semester.id);
@@ -82,7 +80,6 @@ export default function EditorSemestreAdminPage() {
   const handleUpdateSubject = async (id: string, name: string) => {
     const result = await updateSubjectAction(id, name);
     if (result.success) {
-      // Recargar las asignaturas del semestre correspondiente
       const semesterId = Object.keys(subjects).find((sId) =>
         subjects[sId].some((subject) => subject.id === id)
       );
@@ -98,7 +95,6 @@ export default function EditorSemestreAdminPage() {
   const handleDeleteSubject = async (subjectId: string) => {
     const result = await deleteSubjectAction(subjectId);
     if (result.success) {
-      // Recargar las asignaturas del semestre correspondiente
       const semesterId = Object.keys(subjects).find((sId) =>
         subjects[sId].some((subject) => subject.id === subjectId)
       );
@@ -112,7 +108,6 @@ export default function EditorSemestreAdminPage() {
   };
 
   const handleEditSubject = (semesterId: string, subject: Subject) => {
-    // Esta función se puede usar para lógica adicional si es necesaria
     console.log("Editing subject:", subject.name, "in semester:", semesterId);
   };
 

@@ -14,7 +14,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isLoading) {
       if (!user) {
-        // Verificar localStorage como fallback
         const savedUser = localStorage.getItem("user");
         if (!savedUser) {
           console.log(

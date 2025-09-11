@@ -23,19 +23,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar si hay un usuario guardado en localStorage
     try {
       const savedUser = localStorage.getItem("user");
       if (savedUser) {
         const userData = JSON.parse(savedUser);
         if (userData.id && userData.email) {
           setUser(userData);
-          // También guardar en cookies para el middleware
           if (typeof document !== "undefined") {
-            document.cookie = `user=${savedUser}; path=/; max-age=86400`; // 24 horas
+            document.cookie = `user=${savedUser}; path=/; max-age=86400`;
           }
         } else {
-          // Datos inválidos, limpiar
           localStorage.removeItem("user");
           if (typeof document !== "undefined") {
             document.cookie =
@@ -53,7 +50,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setIsLoading(false);
 
-    // Escuchar cambios en localStorage (para sincronizar entre pestañas)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "user") {
         if (e.newValue) {
@@ -77,16 +73,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(user);
     const userString = JSON.stringify(user);
     localStorage.setItem("user", userString);
-    // Guardar también en cookies para el middleware
     if (typeof document !== "undefined") {
-      document.cookie = `user=${userString}; path=/; max-age=86400`; // 24 horas
+      document.cookie = `user=${userString}; path=/; max-age=86400`;
     }
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem("user");
-    // Limpiar cookie
     if (typeof document !== "undefined") {
       document.cookie = "user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     }
