@@ -1,5 +1,5 @@
 import { getSubjectById } from "@/lib/db";
-import { VideoPlayer } from "@/app/ui/Asignatura/video-player";
+import { VideoPlayer } from "@/components/ui/Asignatura/video-player";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
