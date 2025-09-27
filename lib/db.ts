@@ -63,6 +63,23 @@ export type Task = {
   updated_at: string;
 }
 
+export type EnhancedChunk = {
+  chunk_text: string;
+  section_title: string;
+  chunk_index: number;
+  similarity_score: number;
+  token_count: number;
+  created_with_overlap: boolean;
+}
+
+export type ChunkMetadata = {
+  chunk_index?: number;
+  section_title?: string;
+  token_count?: number;
+  created_with_overlap?: boolean;
+  page_number?: number;
+}
+
 // Funciones para Semestres
 export async function getSemesters(): Promise<Semester[]> {
   const result = await sql`
@@ -473,7 +490,7 @@ export async function getTaskStats(): Promise<{
   };
 }
 
-// Funciones para RAG
+// Funciones de RAG y Cbunks
 export async function insertPdfChunks(
   pdfId: string,
   asignaturaId: string,
@@ -493,6 +510,54 @@ export async function insertPdfChunks(
   console.log(`✅ Insertados ${chunks.length} nuevos chunks para el PDF ${pdfId}`);
 }
 
+export async function insertPdfChunksWithMetadata(
+  pdfId: string,
+  asignaturaId: string,
+  chunks: { 
+    text: string; 
+    embedding: number[];
+    metadata?: ChunkMetadata;
+  }[]
+): Promise<void> {
+  await sql`DELETE FROM embedding_chunks WHERE pdf_id = ${pdfId}`;
+  console.log(`🧹 Chunks antiguos del PDF ${pdfId} eliminados.`);
+
+  const chunksWithMetadata = chunks.map((chunk, index) => ({
+    pdf_id: pdfId,
+    asignatura_id: asignaturaId,
+    chunk_text: chunk.text,
+    embedding: JSON.stringify(chunk.embedding),
+    chunk_index: chunk.metadata?.chunk_index ?? index,
+    section_title: chunk.metadata?.section_title?.substring(0, 100) ?? "Contenido",
+    token_count: chunk.metadata?.token_count ?? chunk.text.split(' ').length,
+    created_with_overlap: chunk.metadata?.created_with_overlap ?? false,
+    page_number: chunk.metadata?.page_number ?? null
+  }));
+
+  const BATCH_SIZE = 50;
+  for (let i = 0; i < chunksWithMetadata.length; i += BATCH_SIZE) {
+    const batch = chunksWithMetadata.slice(i, i + BATCH_SIZE);
+    
+    await sql.transaction(
+      batch.map(chunk => 
+        sql`
+          INSERT INTO embedding_chunks (
+            pdf_id, asignatura_id, chunk_text, embedding,
+            chunk_index, section_title, token_count, created_with_overlap, page_number
+          )
+          VALUES (
+            ${chunk.pdf_id}, ${chunk.asignatura_id}, ${chunk.chunk_text}, ${chunk.embedding},
+            ${chunk.chunk_index}, ${chunk.section_title}, ${chunk.token_count}, 
+            ${chunk.created_with_overlap}, ${chunk.page_number}
+          )
+        `
+      )
+    );
+  }
+  
+  console.log(`✅ Insertados ${chunks.length} chunks enriquecidos para el PDF ${pdfId}`);
+}
+
 export async function findSimilarChunks(
   asignaturaId: string,
   queryEmbedding: number[],
@@ -506,4 +571,301 @@ export async function findSimilarChunks(
     LIMIT ${match_count}
   `;
   return result as { chunk_text: string }[];
+}
+
+export async function findSimilarChunksEnhanced(
+  asignaturaId: string,
+  queryEmbedding: number[],
+  options: {
+    match_count?: number;
+    similarity_threshold?: number;
+    include_overlap_chunks?: boolean;
+    section_filter?: string;
+    diversify_results?: boolean;
+  } = {}
+): Promise<EnhancedChunk[]> {
+  
+  const {
+    match_count = 8,
+    similarity_threshold = 0.3,
+    include_overlap_chunks = true,
+    section_filter,
+    diversify_results = true
+  } = options;
+
+  let whereConditions = [sql`asignatura_id = ${asignaturaId}`];
+  
+  if (section_filter) {
+    whereConditions.push(sql`section_title ILIKE ${`%${section_filter}%`}`);
+  }
+  
+  if (!include_overlap_chunks) {
+    whereConditions.push(sql`created_with_overlap = FALSE`);
+  }
+
+  const whereClause = whereConditions.reduce((acc, condition, index) => {
+    return index === 0 ? condition : sql`${acc} AND ${condition}`;
+  });
+
+  if (diversify_results) {
+    const result = await sql`
+      WITH similarity_search AS (
+        SELECT 
+          chunk_text,
+          COALESCE(section_title, 'Contenido') as section_title,
+          COALESCE(chunk_index, 0) as chunk_index,
+          COALESCE(token_count, 0) as token_count,
+          COALESCE(created_with_overlap, false) as created_with_overlap,
+          1 - (embedding <=> ${JSON.stringify(queryEmbedding)}) as similarity_score
+        FROM embedding_chunks
+        WHERE ${whereClause}
+        AND 1 - (embedding <=> ${JSON.stringify(queryEmbedding)}) > ${similarity_threshold}
+        ORDER BY similarity_score DESC
+        LIMIT ${match_count * 2}
+      ),
+      diversified_results AS (
+        SELECT *,
+          ROW_NUMBER() OVER (
+            PARTITION BY section_title 
+            ORDER BY similarity_score DESC
+          ) as section_rank
+        FROM similarity_search
+      )
+      SELECT 
+        chunk_text,
+        section_title,
+        chunk_index,
+        token_count,
+        created_with_overlap,
+        similarity_score
+      FROM diversified_results
+      WHERE section_rank <= 2  -- Máximo 2 chunks por sección
+      ORDER BY similarity_score DESC, chunk_index ASC
+      LIMIT ${match_count}
+    `;
+    
+    return result as EnhancedChunk[];
+  } else {
+    const result = await sql`
+      SELECT 
+        chunk_text,
+        COALESCE(section_title, 'Contenido') as section_title,
+        COALESCE(chunk_index, 0) as chunk_index,
+        COALESCE(token_count, 0) as token_count,
+        COALESCE(created_with_overlap, false) as created_with_overlap,
+        1 - (embedding <=> ${JSON.stringify(queryEmbedding)}) as similarity_score
+      FROM embedding_chunks
+      WHERE ${whereClause}
+      AND 1 - (embedding <=> ${JSON.stringify(queryEmbedding)}) > ${similarity_threshold}
+      ORDER BY similarity_score DESC, chunk_index ASC
+      LIMIT ${match_count}
+    `;
+    
+    return result as EnhancedChunk[];
+  }
+}
+
+export async function hybridSearch(
+  asignaturaId: string,
+  query: string,
+  queryEmbedding: number[],
+  options: {
+    match_count?: number;
+    keyword_weight?: number;
+    similarity_threshold?: number;
+  } = {}
+): Promise<EnhancedChunk[]> {
+  
+  const {
+    match_count = 8,
+    keyword_weight = 0.3,
+    similarity_threshold = 0.25
+  } = options;
+
+  const keywords = query.toLowerCase()
+    .replace(/[^\w\sáéíóúüñ]/g, '')
+    .split(/\s+/)
+    .filter(word => word.length > 3)
+    .slice(0, 5);
+
+  if (keywords.length === 0) {
+    return findSimilarChunksEnhanced(asignaturaId, queryEmbedding, { match_count, similarity_threshold });
+  }
+
+  const keywordPatterns = keywords.map(k => `%${k}%`);
+
+  const result = await sql`
+    WITH similarity_search AS (
+      SELECT 
+        chunk_text,
+        COALESCE(section_title, 'Contenido') as section_title,
+        COALESCE(chunk_index, 0) as chunk_index,
+        COALESCE(token_count, 0) as token_count,
+        COALESCE(created_with_overlap, false) as created_with_overlap,
+        1 - (embedding <=> ${JSON.stringify(queryEmbedding)}) as similarity_score,
+        -- Calcular puntaje de palabras clave
+        (
+          SELECT COUNT(*) 
+          FROM unnest(${keywordPatterns}) AS pattern
+          WHERE chunk_text ILIKE pattern
+        )::float / ${keywords.length} as keyword_score
+      FROM embedding_chunks
+      WHERE asignatura_id = ${asignaturaId}
+    ),
+    scored_results AS (
+      SELECT *,
+        -- Puntaje híbrido combinado
+        (similarity_score * (1 - ${keyword_weight})) + 
+        (keyword_score * ${keyword_weight}) as hybrid_score
+      FROM similarity_search
+      WHERE similarity_score > ${similarity_threshold}
+      OR keyword_score > 0
+    )
+    SELECT 
+      chunk_text,
+      section_title,
+      chunk_index,
+      token_count,
+      created_with_overlap,
+      hybrid_score as similarity_score
+    FROM scored_results
+    ORDER BY hybrid_score DESC, chunk_index ASC
+    LIMIT ${match_count}
+  `;
+  
+  return result as EnhancedChunk[];
+}
+
+export async function getExpandedContext(
+  pdfId: string,
+  centerChunkIndex: number,
+  contextWindow: number = 2
+): Promise<{
+  before: EnhancedChunk[];
+  center: EnhancedChunk | null;
+  after: EnhancedChunk[];
+}> {
+  
+  const result = await sql`
+    SELECT 
+      chunk_text,
+      COALESCE(section_title, 'Contenido') as section_title,
+      COALESCE(chunk_index, 0) as chunk_index,
+      COALESCE(token_count, 0) as token_count,
+      COALESCE(created_with_overlap, false) as created_with_overlap,
+      0.0 as similarity_score
+    FROM embedding_chunks
+    WHERE pdf_id = ${pdfId}
+    AND chunk_index BETWEEN ${centerChunkIndex - contextWindow} AND ${centerChunkIndex + contextWindow}
+    ORDER BY chunk_index ASC
+  `;
+  
+  const chunks = result as EnhancedChunk[];
+  const centerIdx = chunks.findIndex(c => c.chunk_index === centerChunkIndex);
+  
+  if (centerIdx === -1) {
+    return { before: [], center: null, after: [] };
+  }
+  
+  return {
+    before: chunks.slice(0, centerIdx),
+    center: chunks[centerIdx],
+    after: chunks.slice(centerIdx + 1)
+  };
+}
+
+export async function getChunkStats(asignaturaId: string): Promise<{
+  total_chunks: number;
+  total_pdfs: number;
+  avg_chunk_size: number;
+  chunks_with_overlap: number;
+  sections: { section_title: string; count: number }[];
+  pdf_stats: { filename: string; chunk_count: number; avg_similarity?: number }[];
+}> {
+  
+  const generalStats = await sql`
+    SELECT 
+      COUNT(*) as total_chunks,
+      COUNT(DISTINCT pdf_id) as total_pdfs,
+      AVG(COALESCE(token_count, 0)) as avg_chunk_size,
+      COUNT(CASE WHEN created_with_overlap = true THEN 1 END) as chunks_with_overlap
+    FROM embedding_chunks
+    WHERE asignatura_id = ${asignaturaId}
+  `;
+  
+  const sectionStats = await sql`
+    SELECT 
+      COALESCE(section_title, 'Sin título') as section_title,
+      COUNT(*) as count
+    FROM embedding_chunks
+    WHERE asignatura_id = ${asignaturaId}
+    GROUP BY section_title
+    ORDER BY count DESC
+    LIMIT 10
+  `;
+
+  const pdfStats = await sql`
+    SELECT 
+      p.filename,
+      COUNT(ec.id) as chunk_count
+    FROM pdf p
+    LEFT JOIN embedding_chunks ec ON p.id = ec.pdf_id
+    WHERE p.asignatura_id = ${asignaturaId}
+    GROUP BY p.id, p.filename
+    ORDER BY chunk_count DESC
+  `;
+  
+  const stats = generalStats[0] || {};
+  
+  return {
+    total_chunks: parseInt(stats.total_chunks || '0'),
+    total_pdfs: parseInt(stats.total_pdfs || '0'),
+    avg_chunk_size: parseFloat(stats.avg_chunk_size || '0'),
+    chunks_with_overlap: parseInt(stats.chunks_with_overlap || '0'),
+    sections: sectionStats as { section_title: string; count: number }[],
+    pdf_stats: pdfStats as { filename: string; chunk_count: number }[]
+  };
+}
+
+export async function searchChunksByText(
+  asignaturaId: string,
+  searchText: string,
+  options: {
+    exact_match?: boolean;
+    case_sensitive?: boolean;
+    limit?: number;
+  } = {}
+): Promise<EnhancedChunk[]> {
+  
+  const { exact_match = false, case_sensitive = false, limit = 10 } = options;
+  
+  let searchCondition;
+  
+  if (exact_match) {
+    searchCondition = case_sensitive 
+      ? sql`chunk_text = ${searchText}`
+      : sql`LOWER(chunk_text) = LOWER(${searchText})`;
+  } else {
+    const searchPattern = `%${searchText}%`;
+    searchCondition = case_sensitive
+      ? sql`chunk_text LIKE ${searchPattern}`
+      : sql`chunk_text ILIKE ${searchPattern}`;
+  }
+
+  const result = await sql`
+    SELECT 
+      chunk_text,
+      COALESCE(section_title, 'Contenido') as section_title,
+      COALESCE(chunk_index, 0) as chunk_index,
+      COALESCE(token_count, 0) as token_count,
+      COALESCE(created_with_overlap, false) as created_with_overlap,
+      0.0 as similarity_score
+    FROM embedding_chunks
+    WHERE asignatura_id = ${asignaturaId}
+    AND ${searchCondition}
+    ORDER BY chunk_index ASC
+    LIMIT ${limit}
+  `;
+  
+  return result as EnhancedChunk[];
 }
