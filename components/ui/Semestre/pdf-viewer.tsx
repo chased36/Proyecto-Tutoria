@@ -8,9 +8,7 @@ import {
   CheckCircle,
   AlertCircle,
   FileText,
-  BrainCircuit,
 } from "lucide-react";
-import { processAndStoreEmbeddingsAction } from "@/app/actions/subject-data-actions";
 
 interface PDFStatusIndicatorProps {
   pdf: PDF;
@@ -18,9 +16,7 @@ interface PDFStatusIndicatorProps {
 
 function PDFStatusIndicator({ pdf: initialPdf }: PDFStatusIndicatorProps) {
   const [currentPdf, setCurrentPdf] = useState<PDF>(initialPdf);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isSynced, setIsSynced] = useState(false);
 
   const status =
     currentPdf.task_status === "done" ? "completed" : currentPdf.task_status;
@@ -82,42 +78,7 @@ function PDFStatusIndicator({ pdf: initialPdf }: PDFStatusIndicatorProps) {
     return () => clearTimeout(intervalId);
   }, [currentPdf.task_id, currentPdf.task_status]);
 
-  const handleSync = async () => {
-    if (!currentPdf.embeddings_url) {
-      alert(
-        "El conocimiento aún no está listo o la información no se ha refrescado."
-      );
-      return;
-    }
-    setIsSyncing(true);
-    const result = await processAndStoreEmbeddingsAction(
-      currentPdf.id,
-      currentPdf.asignatura_id,
-      currentPdf.embeddings_url
-    );
-    if (!result.success) {
-      alert(`Error al sincronizar con TUTOR-IA: ${result.error}`);
-    } else {
-      alert(
-        "¡Sincronización con TUTOR-IA completada! El chatbot ahora puede usar este documento."
-      );
-      setIsSynced(true);
-    }
-    setIsSyncing(false);
-  };
-
   const renderStatus = () => {
-    if (isSynced) {
-      return (
-        <span
-          className="flex items-center gap-1 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded"
-          title="El conocimiento de este PDF ha sido sincronizado con TUTOR-IA."
-        >
-          <BrainCircuit size={12} /> TUTOR-IA Ready
-        </span>
-      );
-    }
-
     switch (status) {
       case "pending":
         return (
@@ -141,9 +102,9 @@ function PDFStatusIndicator({ pdf: initialPdf }: PDFStatusIndicatorProps) {
         return (
           <span
             className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded"
-            title="El conocimiento está listo para ser sincronizado con TUTOR-IA"
+            title="El conocimiento de este PDF está listo para TUTOR-IA"
           >
-            <CheckCircle size={12} /> Conocimiento para sincronizar
+            <CheckCircle size={12} /> TUTOR-IA Ready
           </span>
         );
       case "error":
@@ -173,20 +134,6 @@ function PDFStatusIndicator({ pdf: initialPdf }: PDFStatusIndicatorProps) {
         {renderStatus()}
       </div>
       <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-        {status === "completed" && !isSynced && (
-          <button
-            onClick={handleSync}
-            disabled={isSyncing}
-            className="p-1.5 text-gray-500 hover:bg-purple-100 hover:text-purple-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title="Sincronizar conocimiento con TUTOR-IA"
-          >
-            {isSyncing ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <BrainCircuit size={16} />
-            )}
-          </button>
-        )}
         <a
           href={currentPdf.url}
           target="_blank"
