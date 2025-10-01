@@ -9,7 +9,6 @@ interface ExamInProgressPageProps {
   params: Promise<{ id: string }>;
 }
 
-// Función para mezclar array de forma aleatoria (Fisher-Yates shuffle)
 function shuffleArray<T>(array: T[]): T[] {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -40,7 +39,6 @@ export default function ExamInProgressPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Cargar datos iniciales
   useEffect(() => {
     async function loadExamData() {
       try {
@@ -56,10 +54,8 @@ export default function ExamInProgressPage({
 
         setSubject(result.subject);
 
-        // Mezclar preguntas
         const shuffledQuestions = shuffleArray(result.subject.questions);
 
-        // Para cada pregunta, mezclar sus respuestas
         const questionsWithShuffledAnswers: ShuffledQuestion[] =
           shuffledQuestions.map((question) => {
             const allAnswers = [
@@ -91,7 +87,6 @@ export default function ExamInProgressPage({
     loadExamData();
   }, [asignaturaId]);
 
-  // Prevenir salida accidental
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (!isSubmitting && Object.keys(selectedAnswers).length > 0) {
@@ -106,7 +101,6 @@ export default function ExamInProgressPage({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isSubmitting, selectedAnswers]);
 
-  // Detectar cuando el usuario abandona la pestaña
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -144,7 +138,6 @@ export default function ExamInProgressPage({
       return;
     }
 
-    // Confirmación antes de enviar
     const confirmSubmit = window.confirm(
       "¿Estás seguro de que deseas finalizar el examen? No podrás cambiar tus respuestas después."
     );
@@ -156,9 +149,8 @@ export default function ExamInProgressPage({
     setIsSubmitting(true);
     try {
       const correctAnswers = calculateScore();
-      const calificacion = (correctAnswers / questions.length) * 10; // Escala de 0-10
+      const calificacion = (correctAnswers / questions.length) * 10;
 
-      // Preparar respuestas para guardar
       const respuestas = questions.map((question, index) => ({
         preguntaId: question.id,
         respuestaSeleccionada: selectedAnswers[index],
@@ -167,7 +159,6 @@ export default function ExamInProgressPage({
 
       console.log("💾 Guardando resultado del examen...");
 
-      // Guardar resultado en la base de datos
       const response = await fetch("/api/quiz/save", {
         method: "POST",
         headers: {
@@ -189,12 +180,10 @@ export default function ExamInProgressPage({
       const result = await response.json();
       console.log("✅ Resultado guardado exitosamente");
 
-      // Calcular tiempo transcurrido
       const timeSpent = timeStarted
         ? Math.floor((Date.now() - timeStarted) / 1000 / 60)
         : 0;
 
-      // Preparar datos detallados de respuestas para la página de resultados
       const detailedAnswers = questions.map((question, index) => ({
         pregunta: question.pregunta,
         respuestaUsuario: selectedAnswers[index],
@@ -203,7 +192,6 @@ export default function ExamInProgressPage({
         todasLasOpciones: question.shuffledAnswers,
       }));
 
-      // Almacenar resultado en sessionStorage
       sessionStorage.setItem(
         "examResult",
         JSON.stringify({
@@ -219,7 +207,6 @@ export default function ExamInProgressPage({
         })
       );
 
-      // Redirigir a resultados
       console.log("➡️ Redirigiendo a resultados...");
       router.push(`/examen/${asignaturaId}/resultado`);
     } catch (error) {
@@ -304,7 +291,6 @@ export default function ExamInProgressPage({
 
   return (
     <div className="max-w-4xl mx-auto pb-8">
-      {/* Barra de progreso */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <div className="flex justify-between items-center mb-4">
           <div>
@@ -321,7 +307,6 @@ export default function ExamInProgressPage({
           </div>
         </div>
 
-        {/* Barra de progreso visual */}
         <div className="w-full bg-gray-200 rounded-full h-3 mb-4 overflow-hidden">
           <div
             className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
@@ -329,7 +314,6 @@ export default function ExamInProgressPage({
           ></div>
         </div>
 
-        {/* Estado de respuestas */}
         <div className="flex flex-wrap gap-2">
           {questions.map((_, index) => (
             <button
@@ -350,7 +334,6 @@ export default function ExamInProgressPage({
         </div>
       </div>
 
-      {/* Pregunta actual */}
       <div className="bg-white rounded-lg shadow-md p-8 mb-6">
         <div className="mb-8">
           <div className="flex items-start gap-3 mb-4">
@@ -365,7 +348,6 @@ export default function ExamInProgressPage({
           </div>
         </div>
 
-        {/* Opciones de respuesta */}
         <div className="space-y-3">
           {currentQ.shuffledAnswers.map((answer, index) => {
             const isSelected = selectedAnswers[currentQuestion] === answer;
@@ -409,7 +391,6 @@ export default function ExamInProgressPage({
         </div>
       </div>
 
-      {/* Navegación */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex justify-between items-center">
           <button
@@ -483,22 +464,6 @@ export default function ExamInProgressPage({
               )}
             </button>
           )}
-        </div>
-      </div>
-
-      {/* Información adicional */}
-      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-start gap-3 text-sm text-blue-800">
-          <span className="text-lg">💡</span>
-          <div className="space-y-1">
-            <p className="font-medium">Consejos:</p>
-            <ul className="space-y-1 text-blue-700">
-              <li>• Usa los números arriba para navegar entre preguntas</li>
-              <li>• Las preguntas respondidas aparecen en verde</li>
-              <li>• Puedes cambiar tus respuestas antes de finalizar</li>
-              <li>• No salgas de esta ventana hasta completar el examen</li>
-            </ul>
-          </div>
         </div>
       </div>
     </div>

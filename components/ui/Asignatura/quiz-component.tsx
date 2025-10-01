@@ -32,7 +32,6 @@ export function QuizComponent({
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Timer para mostrar tiempo transcurrido
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeElapsed(Math.floor((Date.now() - examStartTime) / 1000));
@@ -51,7 +50,7 @@ export function QuizComponent({
   }
 
   const handleAnswerSelect = (questionIndex: number, answer: string) => {
-    if (showResults) return; // Prevenir cambios después de mostrar resultados
+    if (showResults) return;
 
     setSelectedAnswers((prev) => ({
       ...prev,
@@ -94,11 +93,9 @@ export function QuizComponent({
     setIsSubmitting(true);
 
     try {
-      // Aquí integrarías con la función saveQuizResult del lib/db.ts
       const score = calculateScore();
       const percentage = getScorePercentage();
 
-      // Preparar datos para guardar en la base de datos
       const respuestas = questions.map((question, index) => ({
         preguntaId: question.id,
         respuestaSeleccionada: selectedAnswers[index] || "",
@@ -171,7 +168,6 @@ export function QuizComponent({
           <p className="text-gray-600">Has finalizado el examen exitosamente</p>
         </div>
 
-        {/* Resultados principales */}
         <div className="bg-gradient-to-r from-blue-50 to-green-50 p-8 rounded-xl border">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div className="text-center">
@@ -194,7 +190,6 @@ export function QuizComponent({
             </div>
           </div>
 
-          {/* Barra de progreso con clases dinámicas de Tailwind */}
           <div className="w-full bg-gray-200 rounded-full h-4 mb-4">
             <div
               className={`h-4 rounded-full transition-all duration-1000 ${
@@ -225,7 +220,6 @@ export function QuizComponent({
           </p>
         </div>
 
-        {/* Resumen detallado */}
         <div className="bg-white border rounded-lg p-6 text-left">
           <h3 className="text-lg font-semibold mb-4 text-center">
             Resumen Detallado
@@ -254,7 +248,6 @@ export function QuizComponent({
           </div>
         </div>
 
-        {/* Navegación de salida */}
         <div className="space-y-3">
           <button
             onClick={() => router.push(`/asignatura/${subjectId}`)}
@@ -273,7 +266,6 @@ export function QuizComponent({
 
   return (
     <div className="space-y-6">
-      {/* Header del examen con información */}
       <div className="flex flex-col md:flex-row justify-between items-center bg-gray-50 p-4 rounded-lg">
         <div className="flex items-center gap-4 mb-2 md:mb-0">
           <h3 className="text-lg font-semibold text-gray-800">
@@ -293,7 +285,6 @@ export function QuizComponent({
         </div>
       </div>
 
-      {/* Navegación de preguntas */}
       <div className="bg-white border rounded-lg p-4">
         <div className="flex flex-wrap gap-2 mb-4">
           {questions.map((_, index) => (
@@ -314,7 +305,6 @@ export function QuizComponent({
         </div>
       </div>
 
-      {/* Pregunta actual */}
       <div className="bg-white border rounded-lg p-6">
         <h4 className="text-xl font-medium mb-6 text-gray-800 leading-relaxed">
           {currentQ.pregunta}
@@ -344,7 +334,6 @@ export function QuizComponent({
         </div>
       </div>
 
-      {/* Controles de navegación */}
       <div className="flex justify-between items-center">
         <button
           onClick={goToPreviousQuestion}

@@ -34,20 +34,15 @@ export default function ExamResultPage({ params }: ExamResultPageProps) {
   const [resultData, setResultData] = useState<ExamResultData | null>(null);
 
   useEffect(() => {
-    // Recuperar datos del sessionStorage
     const storedData = sessionStorage.getItem("examResult");
 
     if (!storedData) {
-      // Si no hay datos, redirigir a la página de inicio del examen
       router.push(`/examen/${asignaturaId}`);
       return;
     }
 
     const data = JSON.parse(storedData) as ExamResultData;
     setResultData(data);
-
-    // Limpiar sessionStorage después de cargar
-    // sessionStorage.removeItem("examResult")
   }, [asignaturaId, router]);
 
   if (!resultData) {
@@ -77,7 +72,6 @@ export default function ExamResultPage({ params }: ExamResultPageProps) {
 
   return (
     <div className="max-w-4xl mx-auto pb-8">
-      {/* Tarjeta de resumen principal */}
       <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
@@ -86,7 +80,6 @@ export default function ExamResultPage({ params }: ExamResultPageProps) {
           <p className="text-gray-600">{resultData.subjectName}</p>
         </div>
 
-        {/* Calificación principal */}
         <div className="flex justify-center items-center gap-8 mb-8">
           <div className="text-center">
             <div
@@ -113,7 +106,6 @@ export default function ExamResultPage({ params }: ExamResultPageProps) {
           </div>
         </div>
 
-        {/* Mensaje de retroalimentación */}
         <div className="text-center mb-6">
           <p
             className={`text-xl font-semibold ${getGradeColor(
@@ -124,7 +116,6 @@ export default function ExamResultPage({ params }: ExamResultPageProps) {
           </p>
         </div>
 
-        {/* Estadísticas */}
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="bg-green-50 rounded-lg p-4 text-center border border-green-200">
             <div className="text-3xl font-bold text-green-600 mb-1">
@@ -141,7 +132,6 @@ export default function ExamResultPage({ params }: ExamResultPageProps) {
           </div>
         </div>
 
-        {/* Barra de progreso visual */}
         <div className="mb-6">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
             <span>Progreso del examen</span>
@@ -163,7 +153,6 @@ export default function ExamResultPage({ params }: ExamResultPageProps) {
           </div>
         </div>
 
-        {/* Botones de acción */}
         <div className="flex gap-4 justify-center">
           <Link
             href={`/asignatura/${asignaturaId}`}

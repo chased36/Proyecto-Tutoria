@@ -34,7 +34,6 @@ export default function SubjectSelector({
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
-  // Cargar semestres al montar el componente
   useEffect(() => {
     async function fetchSemesters() {
       try {
@@ -51,7 +50,6 @@ export default function SubjectSelector({
     fetchSemesters();
   }, []);
 
-  // Cargar asignaturas cuando se selecciona un semestre
   useEffect(() => {
     if (!selectedSemester) {
       setSubjects([]);
@@ -74,7 +72,6 @@ export default function SubjectSelector({
     fetchSubjects();
   }, [selectedSemester]);
 
-  // Manejar selección de asignatura
   const handleSubjectChange = (subjectId: string) => {
     setSelectedSubject(subjectId);
     const subject = subjects.find((s) => s.id === subjectId);
@@ -89,7 +86,6 @@ export default function SubjectSelector({
         <CardTitle>Seleccionar Asignatura</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Selector de Semestre */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Semestre</label>
           <Select
@@ -117,7 +113,6 @@ export default function SubjectSelector({
           </Select>
         </div>
 
-        {/* Selector de Asignatura */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Asignatura</label>
           <Select

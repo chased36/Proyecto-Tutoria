@@ -19,7 +19,6 @@ export function ExamInterface({ subject, subjectId }: ExamInterfaceProps) {
   const [examStarted, setExamStarted] = useState(false);
   const [beforeUnloadEnabled, setBeforeUnloadEnabled] = useState(false);
 
-  // Prevenir salir de la página durante el examen
   useEffect(() => {
     if (!examStarted || !beforeUnloadEnabled) return;
 
@@ -58,11 +57,9 @@ export function ExamInterface({ subject, subjectId }: ExamInterfaceProps) {
     setBeforeUnloadEnabled(false);
   };
 
-  // Si no ha comenzado el examen, mostrar página de inicio
   if (!examStarted) {
     return (
       <div className="min-h-screen bg-gray-50">
-        {/* Header simplificado */}
         <header className="bg-[#012243] text-white py-4 shadow-md">
           <div className="container mx-auto px-4 flex items-center justify-center">
             <Image src={Izt} alt="LogoOro" height={60} priority />
@@ -145,10 +142,8 @@ export function ExamInterface({ subject, subjectId }: ExamInterfaceProps) {
     );
   }
 
-  // Durante el examen
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header minimalista durante el examen */}
       <header className="bg-[#012243] text-white py-3 shadow-md sticky top-0 z-50">
         <div className="container mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center gap-4">

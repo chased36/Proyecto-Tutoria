@@ -31,7 +31,6 @@ interface AnswerDistributionProps {
   totalAnswers: number | string;
 }
 
-// Componente personalizado para las etiquetas del eje Y
 const CustomYAxisTick = ({ x, y, payload }: any) => {
   const answer = payload.value;
   const isCorrect = answer.startsWith("✓ ");
@@ -52,7 +51,6 @@ const CustomYAxisTick = ({ x, y, payload }: any) => {
   );
 };
 
-// Componente personalizado para las etiquetas de las barras
 const CustomLabel = (props: any) => {
   const { x, y, width, value } = props;
   return (
@@ -76,11 +74,9 @@ export default function AnswerDistribution({
   totalCorrect,
   totalAnswers,
 }: AnswerDistributionProps) {
-  // Convertir valores a números de forma segura
   const safeTotalCorrect = Number(totalCorrect) || 0;
   const safeTotalAnswers = Number(totalAnswers) || 0;
 
-  // Preparar datos para la gráfica
   const chartData = answers.map((answer) => {
     const count = Number(answer.count) || 0;
     const percentage = Number(answer.percentage) || 0;
