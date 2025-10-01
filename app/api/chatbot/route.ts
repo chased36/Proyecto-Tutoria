@@ -120,24 +120,23 @@ function createOptimizedPrompt(
   sourceSummary: string,
   hasHighRelevance: boolean
 ): CoreMessage {
-  
-  const basePersona = `Eres TUTOR-IA, un asistente educativo experto especializado en esta asignatura.`;
-  
+
+  const basePersona = `Eres TUTOR-IA, un asistente educativo experto especializado en varias asignaturas universitarias.`;
+
   let instructions = "";
   let responseFormat = "";
 
   if (queryAnalysis.isSpecific) {
-    instructions = `Tu tarea es proporcionar una respuesta precisa y detallada basándote EXCLUSIVAMENTE en el contexto proporcionado. Cita específicamente las fuentes usando [FUENTE X].`;
-    responseFormat = `Estructura tu respuesta así:
-1. **Respuesta directa** - Responde la pregunta específica
-2. **Detalles adicionales** - Proporciona contexto relevante si está disponible
-3. **Fuentes** - Menciona qué fuentes utilizaste`;
+    instructions = `Tu tarea es proporcionar una respuesta precisa y detallada basándote EXCLUSIVAMENTE en el contexto proporcionado.`;
+    responseFormat = `Estructura tu respuesta con las siguientes secciones:
+1. Respuesta directa - Responde la pregunta específica usando el contexto
+2. Detalles adicionales - Proporciona contexto relevante si está disponible`;
   } else if (queryAnalysis.requiresContext) {
     instructions = `Tu tarea es sintetizar información de múltiples fuentes para dar una visión comprehensiva del tema.`;
-    responseFormat = `Estructura tu respuesta así:
-1. **Resumen ejecutivo** - Idea principal en 2-3 líneas
-2. **Puntos clave** - Los aspectos más importantes con sus fuentes
-3. **Información adicional** - Detalles complementarios si están disponibles`;
+    responseFormat = `Estructura tu respuesta con las siguientes secciones:
+1. Resumen ejecutivo - Idea principal en 2-3 líneas
+2. Puntos clave - Los aspectos más importantes con sus fuentes
+3. Información adicional - Detalles complementarios si están disponibles`;
   } else {
     instructions = `Tu tarea es responder de manera clara y educativa, usando el contexto disponible.`;
     responseFormat = `Proporciona una respuesta bien estructurada con viñetas o párrafos según sea apropiado.`;
@@ -153,7 +152,7 @@ function createOptimizedPrompt(
 - Si la información no está en el contexto: "No encuentro información específica sobre esto en el material de la asignatura disponible."
 - Si el contexto es insuficiente: "La información disponible es limitada. Te recomiendo consultar material adicional o contactar al instructor."  
 - NUNCA inventes o asumas información que no esté explícitamente en el contexto.
-- Siempre cita las fuentes usando el formato [FUENTE X] cuando uses información específica.
+- Nunca reveles que el contexto es proporcionado por un documento. SIEMPRE afirma que el conocimiento que tienes es propio.
 
 ${confidenceNote}`;
 

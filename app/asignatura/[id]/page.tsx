@@ -54,7 +54,7 @@ export default async function SubjectPage({ params }: SubjectPageProps) {
 
           {subject.questions.length > 0 && (
             <Link
-              href={`/asignatura/${id}/examen`}
+              href={`/examen/${id}`}
               className="bg-purple-500 hover:bg-purple-600 text-white p-4 rounded-lg text-center transition-colors"
             >
               <div className="text-lg font-semibold">Hacer Examen</div>

@@ -27,7 +27,7 @@ export type PDF = {
   asignatura_id: string
   created_at: string
   task_status?: "pending" | "processing" | "done" | "error" | null
-  task_id?: string | null;
+  task_id?: string | null
 }
 
 export type Video = {
@@ -51,33 +51,91 @@ export type QuestionWithAnswers = Question & {
 }
 
 export type Task = {
-  id: string;
-  pdf_id: string;
-  status: "pending" | "processing" | "done" | "error";
-  error_message?: string | null;
-  total_chunks?: number | null;
-  processed_chunks?: number | null;
-  hf_task_id?: string | null;
-  hf_status?: string | null;
-  created_at: string;
-  updated_at: string;
+  id: string
+  pdf_id: string
+  status: "pending" | "processing" | "done" | "error"
+  error_message?: string | null
+  total_chunks?: number | null
+  processed_chunks?: number | null
+  hf_task_id?: string | null
+  hf_status?: string | null
+  created_at: string
+  updated_at: string
 }
 
 export type EnhancedChunk = {
-  chunk_text: string;
-  section_title: string;
-  chunk_index: number;
-  similarity_score: number;
-  token_count: number;
-  created_with_overlap: boolean;
+  chunk_text: string
+  section_title: string
+  chunk_index: number
+  similarity_score: number
+  token_count: number
+  created_with_overlap: boolean
 }
 
 export type ChunkMetadata = {
-  chunk_index?: number;
-  section_title?: string;
-  token_count?: number;
-  created_with_overlap?: boolean;
-  page_number?: number;
+  chunk_index?: number
+  section_title?: string
+  token_count?: number
+  created_with_overlap?: boolean
+  page_number?: number
+}
+
+// ============================================
+// NUEVOS TIPOS PARA EL SISTEMA DE CUESTIONARIOS
+// ============================================
+
+export type QuizResult = {
+  id: string
+  asignatura_id: string
+  fecha: string
+  calificacion: number
+  num_preguntas: number
+  preguntas_correctas: number
+  preguntas_incorrectas: number
+}
+
+export type UserAnswer = {
+  id: string
+  resultado_id: string
+  pregunta_id: string
+  respuesta: string
+  es_correcta: boolean
+  fecha: string
+}
+
+export type QuestionStats = {
+  pregunta_id: string
+  pregunta: string
+  total_respuestas: number
+  respuestas_correctas: number
+  respuestas_incorrectas: number
+  porcentaje_correctas: number
+}
+
+export type AnswerDistribution = {
+  pregunta_id: string
+  pregunta: string
+  respuesta: string
+  count: number
+  percentage: number
+  es_correcta: boolean
+}
+
+export type ScoreDistribution = {
+  calificacion: number
+  count: number
+  percentage: number
+}
+
+export type QuizStatistics = {
+  promedio: number
+  mediana: number
+  rango_min: number
+  rango_max: number
+  total_participantes: number
+  score_distribution: ScoreDistribution[]
+  most_difficult_questions: QuestionStats[]
+  answer_distribution: AnswerDistribution[]
 }
 
 // Funciones para Semestres
@@ -188,11 +246,16 @@ export async function updateSubject(id: string, name: string): Promise<void> {
 export async function deleteSubject(id: string): Promise<void> {
   console.log(`Iniciando eliminación de la asignatura con ID: ${id}`)
 
+  // Eliminar resultados de cuestionarios relacionados
+  await sql`DELETE FROM respuesta_usuario WHERE resultado_id IN 
+    (SELECT id FROM resultado_examen WHERE asignatura_id = ${id})`
+  await sql`DELETE FROM resultado_examen WHERE asignatura_id = ${id}`
+
   const pdfsToDelete = await sql`SELECT id FROM pdf WHERE asignatura_id = ${id}`
   if (pdfsToDelete.length > 0) {
-    const pdfIds = pdfsToDelete.map((p: any) => p.id);
-    await sql`DELETE FROM embedding_chunks WHERE pdf_id = ANY(${pdfIds})`;
-    console.log(`Eliminados chunks de ${pdfIds.length} PDFs.`);
+    const pdfIds = pdfsToDelete.map((p: any) => p.id)
+    await sql`DELETE FROM embedding_chunks WHERE pdf_id = ANY(${pdfIds})`
+    console.log(`Eliminados chunks de ${pdfIds.length} PDFs.`)
   }
 
   const pdfs = await sql`
@@ -231,7 +294,7 @@ export async function deleteSubject(id: string): Promise<void> {
 
   await sql`DELETE FROM pregunta WHERE asignatura_id = ${id}`
   await sql`DELETE FROM asignatura WHERE id = ${id}`
-  
+
   console.log(`Asignatura con ID ${id} eliminada exitosamente`)
 }
 
@@ -308,7 +371,7 @@ export async function createPDF(filename: string, url: string, subjectId: string
 }
 
 export async function deletePDF(id: string): Promise<void> {
-  await sql`DELETE FROM embedding_chunks WHERE pdf_id = ${id}`;
+  await sql`DELETE FROM embedding_chunks WHERE pdf_id = ${id}`
 
   const pdf = await sql`
     SELECT url, embeddings_url FROM pdf WHERE id = ${id}
@@ -406,8 +469,8 @@ export async function createEmbeddingTask(pdfId: string): Promise<Task> {
     INSERT INTO task (pdf_id, status, created_at, updated_at)
     VALUES (${pdfId}, 'pending', NOW(), NOW())
     RETURNING id, pdf_id, status, error_message, created_at, updated_at
-  `;
-  return result[0] as Task;
+  `
+  return result[0] as Task
 }
 
 export async function getTaskById(taskId: string): Promise<Task | null> {
@@ -433,8 +496,8 @@ export async function getTaskWithPDFInfo(taskId: string): Promise<any> {
     FROM task t
     INNER JOIN pdf p ON t.pdf_id = p.id
     WHERE t.id = ${taskId}
-  `;
-  return result.length > 0 ? result[0] : null;
+  `
+  return result.length > 0 ? result[0] : null
 }
 
 export async function updateTaskStatus(
@@ -452,11 +515,11 @@ export async function updateTaskStatus(
 }
 
 export async function getTaskStats(): Promise<{
-  pending: number;
-  processing: number;
-  done: number;
-  error: number;
-  total: number;
+  pending: number
+  processing: number
+  done: number
+  error: number
+  total: number
 }> {
   const result = await sql`
     SELECT 
@@ -465,62 +528,249 @@ export async function getTaskStats(): Promise<{
     FROM task
     GROUP BY status
   `
-  
-  const stats: { [key: string]: number, total: number } = {
+
+  const stats: { [key: string]: number; total: number } = {
     pending: 0,
     processing: 0,
     done: 0,
     error: 0,
-    total: 0
+    total: 0,
   }
-  
+
   result.forEach((row: any) => {
     if (stats.hasOwnProperty(row.status)) {
-        stats[row.status] = parseInt(row.count)
+      stats[row.status] = Number.parseInt(row.count)
     }
-    stats.total += parseInt(row.count)
+    stats.total += Number.parseInt(row.count)
   })
-  
+
   return stats as {
-    pending: number;
-    processing: number;
-    done: number;
-    error: number;
-    total: number;
-  };
+    pending: number
+    processing: number
+    done: number
+    error: number
+    total: number
+  }
 }
 
-// Funciones de RAG y Cbunks
+// Funciones para estudio estadistico
+export async function saveQuizResult(
+  asignaturaId: string,
+  calificacion: number,
+  numPreguntas: number,
+  preguntasCorrectas: number,
+  respuestas: Array<{
+    preguntaId: string
+    respuestaSeleccionada: string
+    esCorrecta: boolean
+  }>,
+): Promise<QuizResult> {
+  const resultadoResult = await sql`
+    INSERT INTO resultado_examen (
+      id, asignatura_id, fecha, calificacion, num_preguntas, 
+      preguntas_correctas, preguntas_incorrectas
+    )
+    VALUES (
+      gen_random_uuid(), ${asignaturaId}, NOW(), ${calificacion}, 
+      ${numPreguntas}, ${preguntasCorrectas}, ${numPreguntas - preguntasCorrectas}
+    )
+    RETURNING id, asignatura_id, fecha, calificacion, num_preguntas, 
+              preguntas_correctas, preguntas_incorrectas
+  `
+
+  const resultado = resultadoResult[0] as QuizResult
+
+  for (const respuesta of respuestas) {
+    await sql`
+      INSERT INTO respuesta_usuario (
+        id, resultado_id, pregunta_id, respuesta, es_correcta, fecha
+      )
+      VALUES (
+        gen_random_uuid(), ${resultado.id}, ${respuesta.preguntaId}, 
+        ${respuesta.respuestaSeleccionada}, ${respuesta.esCorrecta}, NOW()
+      )
+    `
+  }
+
+  console.log(`✅ Resultado de cuestionario guardado: ${preguntasCorrectas}/${numPreguntas}`)
+  return resultado
+}
+
+export async function getQuizStatistics(asignaturaId: string): Promise<QuizStatistics> {
+  const generalStats = await sql`
+    SELECT 
+      AVG(calificacion) as promedio,
+      PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY calificacion) as mediana,
+      MIN(calificacion) as rango_min,
+      MAX(calificacion) as rango_max,
+      COUNT(*) as total_participantes
+    FROM resultado_examen
+    WHERE asignatura_id = ${asignaturaId}
+  `
+
+  const stats = generalStats[0] || {
+    promedio: 0,
+    mediana: 0,
+    rango_min: 0,
+    rango_max: 0,
+    total_participantes: 0,
+  }
+
+  const scoreDistribution = await sql`
+    SELECT 
+      calificacion,
+      COUNT(*) as count,
+      ROUND((COUNT(*) * 100.0 / SUM(COUNT(*)) OVER()), 1) as percentage
+    FROM resultado_examen
+    WHERE asignatura_id = ${asignaturaId}
+    GROUP BY calificacion
+    ORDER BY calificacion
+  `
+
+  const mostDifficultQuestions = await sql`
+    SELECT 
+      ru.pregunta_id,
+      p.pregunta,
+      COUNT(*) as total_respuestas,
+      COUNT(CASE WHEN ru.es_correcta = true THEN 1 END) as respuestas_correctas,
+      COUNT(CASE WHEN ru.es_correcta = false THEN 1 END) as respuestas_incorrectas,
+      ROUND(
+        (COUNT(CASE WHEN ru.es_correcta = true THEN 1 END) * 100.0 / COUNT(*)), 
+        1
+      ) as porcentaje_correctas
+    FROM respuesta_usuario ru
+    INNER JOIN resultado_examen rc ON ru.resultado_id = rc.id
+    INNER JOIN pregunta p ON ru.pregunta_id = p.id
+    WHERE rc.asignatura_id = ${asignaturaId}
+    GROUP BY ru.pregunta_id, p.pregunta
+    ORDER BY porcentaje_correctas ASC, total_respuestas DESC
+  `
+
+  const answerDistribution = await sql`
+    SELECT 
+      ru.pregunta_id,
+      p.pregunta,
+      ru.respuesta,
+      COUNT(*) as count,
+      ROUND((COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(PARTITION BY ru.pregunta_id)), 1) as percentage,
+      ru.es_correcta
+    FROM respuesta_usuario ru
+    INNER JOIN resultado_examen rc ON ru.resultado_id = rc.id
+    INNER JOIN pregunta p ON ru.pregunta_id = p.id
+    WHERE rc.asignatura_id = ${asignaturaId}
+    GROUP BY ru.pregunta_id, p.pregunta, ru.respuesta, ru.es_correcta
+    ORDER BY ru.pregunta_id, count DESC
+  `
+
+  return {
+    promedio: Number.parseFloat(stats.promedio || "0"),
+    mediana: Number.parseFloat(stats.mediana || "0"),
+    rango_min: Number.parseFloat(stats.rango_min || "0"),
+    rango_max: Number.parseFloat(stats.rango_max || "0"),
+    total_participantes: Number.parseInt(stats.total_participantes || "0"),
+    score_distribution: scoreDistribution as ScoreDistribution[],
+    most_difficult_questions: mostDifficultQuestions as QuestionStats[],
+    answer_distribution: answerDistribution as AnswerDistribution[],
+  }
+}
+
+export async function getQuestionStatistics(asignaturaId: string): Promise<QuestionStats[]> {
+  const result = await sql`
+    SELECT 
+      ru.pregunta_id,
+      p.pregunta,
+      COUNT(*) as total_respuestas,
+      COUNT(CASE WHEN ru.es_correcta = true THEN 1 END) as respuestas_correctas,
+      COUNT(CASE WHEN ru.es_correcta = false THEN 1 END) as respuestas_incorrectas,
+      ROUND(
+        (COUNT(CASE WHEN ru.es_correcta = true THEN 1 END) * 100.0 / COUNT(*)), 
+        1
+      ) as porcentaje_correctas
+    FROM respuesta_usuario ru
+    INNER JOIN resultado_examen rc ON ru.resultado_id = rc.id
+    INNER JOIN pregunta p ON ru.pregunta_id = p.id
+    WHERE rc.asignatura_id = ${asignaturaId}
+    GROUP BY ru.pregunta_id, p.pregunta
+    ORDER BY porcentaje_correctas ASC
+  `
+
+  return result as QuestionStats[]
+}
+
+export async function getAnswerDistributionByQuestion(preguntaId: string): Promise<AnswerDistribution[]> {
+  const result = await sql`
+    SELECT 
+      ru.pregunta_id,
+      p.pregunta,
+      ru.respuesta,
+      COUNT(*) as count,
+      ROUND((COUNT(*) * 100.0 / SUM(COUNT(*)) OVER()), 1) as percentage,
+      ru.es_correcta
+    FROM respuesta_usuario ru
+    INNER JOIN pregunta p ON ru.pregunta_id = p.id
+    WHERE ru.pregunta_id = ${preguntaId}
+    GROUP BY ru.pregunta_id, p.pregunta, ru.respuesta, ru.es_correcta
+    ORDER BY count DESC
+  `
+
+  return result as AnswerDistribution[]
+}
+
+export async function getRecentQuizResults(asignaturaId: string, limit = 50): Promise<QuizResult[]> {
+  const result = await sql`
+    SELECT id, asignatura_id, fecha, calificacion, num_preguntas, 
+           preguntas_correctas, preguntas_incorrectas
+    FROM resultado_examen
+    WHERE asignatura_id = ${asignaturaId}
+    ORDER BY fecha DESC
+    LIMIT ${limit}
+  `
+
+  return result as QuizResult[]
+}
+
+export async function getQuizParticipantCount(asignaturaId: string): Promise<number> {
+  const result = await sql`
+    SELECT COUNT(*) as count
+    FROM resultado_examen
+    WHERE asignatura_id = ${asignaturaId}
+  `
+
+  return Number.parseInt(result[0]?.count || "0")
+}
+
+// Funciones de RAG y Chunks
 export async function insertPdfChunks(
   pdfId: string,
   asignaturaId: string,
-  chunks: { text: string; embedding: number[] }[]
+  chunks: { text: string; embedding: number[] }[],
 ): Promise<void> {
-  await sql`DELETE FROM embedding_chunks WHERE pdf_id = ${pdfId}`;
-  console.log(`🧹 Chunks antiguos del PDF ${pdfId} eliminados.`);
+  await sql`DELETE FROM embedding_chunks WHERE pdf_id = ${pdfId}`
+  console.log(`🧹 Chunks antiguos del PDF ${pdfId} eliminados.`)
 
   await sql.transaction(
-    chunks.map(chunk => 
-      sql`
+    chunks.map(
+      (chunk) =>
+        sql`
         INSERT INTO embedding_chunks (pdf_id, asignatura_id, chunk_text, embedding)
         VALUES (${pdfId}, ${asignaturaId}, ${chunk.text}, ${JSON.stringify(chunk.embedding)})
-      `
-    )
-  );
-  console.log(`✅ Insertados ${chunks.length} nuevos chunks para el PDF ${pdfId}`);
+      `,
+    ),
+  )
+  console.log(`✅ Insertados ${chunks.length} nuevos chunks para el PDF ${pdfId}`)
 }
 
 export async function insertPdfChunksWithMetadata(
   pdfId: string,
   asignaturaId: string,
-  chunks: { 
-    text: string; 
-    embedding: number[];
-    metadata?: ChunkMetadata;
-  }[]
+  chunks: {
+    text: string
+    embedding: number[]
+    metadata?: ChunkMetadata
+  }[],
 ): Promise<void> {
-  await sql`DELETE FROM embedding_chunks WHERE pdf_id = ${pdfId}`;
-  console.log(`🧹 Chunks antiguos del PDF ${pdfId} eliminados.`);
+  await sql`DELETE FROM embedding_chunks WHERE pdf_id = ${pdfId}`
+  console.log(`🧹 Chunks antiguos del PDF ${pdfId} eliminados.`)
 
   const chunksWithMetadata = chunks.map((chunk, index) => ({
     pdf_id: pdfId,
@@ -529,18 +779,19 @@ export async function insertPdfChunksWithMetadata(
     embedding: JSON.stringify(chunk.embedding),
     chunk_index: chunk.metadata?.chunk_index ?? index,
     section_title: chunk.metadata?.section_title?.substring(0, 100) ?? "Contenido",
-    token_count: chunk.metadata?.token_count ?? chunk.text.split(' ').length,
+    token_count: chunk.metadata?.token_count ?? chunk.text.split(" ").length,
     created_with_overlap: chunk.metadata?.created_with_overlap ?? false,
-    page_number: chunk.metadata?.page_number ?? null
-  }));
+    page_number: chunk.metadata?.page_number ?? null,
+  }))
 
-  const BATCH_SIZE = 50;
+  const BATCH_SIZE = 50
   for (let i = 0; i < chunksWithMetadata.length; i += BATCH_SIZE) {
-    const batch = chunksWithMetadata.slice(i, i + BATCH_SIZE);
-    
+    const batch = chunksWithMetadata.slice(i, i + BATCH_SIZE)
+
     await sql.transaction(
-      batch.map(chunk => 
-        sql`
+      batch.map(
+        (chunk) =>
+          sql`
           INSERT INTO embedding_chunks (
             pdf_id, asignatura_id, chunk_text, embedding,
             chunk_index, section_title, token_count, created_with_overlap, page_number
@@ -550,18 +801,18 @@ export async function insertPdfChunksWithMetadata(
             ${chunk.chunk_index}, ${chunk.section_title}, ${chunk.token_count}, 
             ${chunk.created_with_overlap}, ${chunk.page_number}
           )
-        `
-      )
-    );
+        `,
+      ),
+    )
   }
-  
-  console.log(`✅ Insertados ${chunks.length} chunks enriquecidos para el PDF ${pdfId}`);
+
+  console.log(`✅ Insertados ${chunks.length} chunks enriquecidos para el PDF ${pdfId}`)
 }
 
 export async function findSimilarChunks(
   asignaturaId: string,
   queryEmbedding: number[],
-  match_count: number = 5
+  match_count = 5,
 ): Promise<{ chunk_text: string }[]> {
   const result = await sql`
     SELECT chunk_text
@@ -569,43 +820,42 @@ export async function findSimilarChunks(
     WHERE asignatura_id = ${asignaturaId}
     ORDER BY embedding <=> ${JSON.stringify(queryEmbedding)}
     LIMIT ${match_count}
-  `;
-  return result as { chunk_text: string }[];
+  `
+  return result as { chunk_text: string }[]
 }
 
 export async function findSimilarChunksEnhanced(
   asignaturaId: string,
   queryEmbedding: number[],
   options: {
-    match_count?: number;
-    similarity_threshold?: number;
-    include_overlap_chunks?: boolean;
-    section_filter?: string;
-    diversify_results?: boolean;
-  } = {}
+    match_count?: number
+    similarity_threshold?: number
+    include_overlap_chunks?: boolean
+    section_filter?: string
+    diversify_results?: boolean
+  } = {},
 ): Promise<EnhancedChunk[]> {
-  
   const {
     match_count = 8,
     similarity_threshold = 0.3,
     include_overlap_chunks = true,
     section_filter,
-    diversify_results = true
-  } = options;
+    diversify_results = true,
+  } = options
 
-  let whereConditions = [sql`asignatura_id = ${asignaturaId}`];
-  
+  const whereConditions = [sql`asignatura_id = ${asignaturaId}`]
+
   if (section_filter) {
-    whereConditions.push(sql`section_title ILIKE ${`%${section_filter}%`}`);
+    whereConditions.push(sql`section_title ILIKE ${`%${section_filter}%`}`)
   }
-  
+
   if (!include_overlap_chunks) {
-    whereConditions.push(sql`created_with_overlap = FALSE`);
+    whereConditions.push(sql`created_with_overlap = FALSE`)
   }
 
   const whereClause = whereConditions.reduce((acc, condition, index) => {
-    return index === 0 ? condition : sql`${acc} AND ${condition}`;
-  });
+    return index === 0 ? condition : sql`${acc} AND ${condition}`
+  })
 
   if (diversify_results) {
     const result = await sql`
@@ -642,9 +892,9 @@ export async function findSimilarChunksEnhanced(
       WHERE section_rank <= 2  -- Máximo 2 chunks por sección
       ORDER BY similarity_score DESC, chunk_index ASC
       LIMIT ${match_count}
-    `;
-    
-    return result as EnhancedChunk[];
+    `
+
+    return result as EnhancedChunk[]
   } else {
     const result = await sql`
       SELECT 
@@ -659,9 +909,9 @@ export async function findSimilarChunksEnhanced(
       AND 1 - (embedding <=> ${JSON.stringify(queryEmbedding)}) > ${similarity_threshold}
       ORDER BY similarity_score DESC, chunk_index ASC
       LIMIT ${match_count}
-    `;
-    
-    return result as EnhancedChunk[];
+    `
+
+    return result as EnhancedChunk[]
   }
 }
 
@@ -670,29 +920,25 @@ export async function hybridSearch(
   query: string,
   queryEmbedding: number[],
   options: {
-    match_count?: number;
-    keyword_weight?: number;
-    similarity_threshold?: number;
-  } = {}
+    match_count?: number
+    keyword_weight?: number
+    similarity_threshold?: number
+  } = {},
 ): Promise<EnhancedChunk[]> {
-  
-  const {
-    match_count = 8,
-    keyword_weight = 0.3,
-    similarity_threshold = 0.25
-  } = options;
+  const { match_count = 8, keyword_weight = 0.3, similarity_threshold = 0.25 } = options
 
-  const keywords = query.toLowerCase()
-    .replace(/[^\w\sáéíóúüñ]/g, '')
+  const keywords = query
+    .toLowerCase()
+    .replace(/[^\w\sáéíóúüñ]/g, "")
     .split(/\s+/)
-    .filter(word => word.length > 3)
-    .slice(0, 5);
+    .filter((word) => word.length > 3)
+    .slice(0, 5)
 
   if (keywords.length === 0) {
-    return findSimilarChunksEnhanced(asignaturaId, queryEmbedding, { match_count, similarity_threshold });
+    return findSimilarChunksEnhanced(asignaturaId, queryEmbedding, { match_count, similarity_threshold })
   }
 
-  const keywordPatterns = keywords.map(k => `%${k}%`);
+  const keywordPatterns = keywords.map((k) => `%${k}%`)
 
   const result = await sql`
     WITH similarity_search AS (
@@ -731,21 +977,20 @@ export async function hybridSearch(
     FROM scored_results
     ORDER BY hybrid_score DESC, chunk_index ASC
     LIMIT ${match_count}
-  `;
-  
-  return result as EnhancedChunk[];
+  `
+
+  return result as EnhancedChunk[]
 }
 
 export async function getExpandedContext(
   pdfId: string,
   centerChunkIndex: number,
-  contextWindow: number = 2
+  contextWindow = 2,
 ): Promise<{
-  before: EnhancedChunk[];
-  center: EnhancedChunk | null;
-  after: EnhancedChunk[];
+  before: EnhancedChunk[]
+  center: EnhancedChunk | null
+  after: EnhancedChunk[]
 }> {
-  
   const result = await sql`
     SELECT 
       chunk_text,
@@ -758,31 +1003,30 @@ export async function getExpandedContext(
     WHERE pdf_id = ${pdfId}
     AND chunk_index BETWEEN ${centerChunkIndex - contextWindow} AND ${centerChunkIndex + contextWindow}
     ORDER BY chunk_index ASC
-  `;
-  
-  const chunks = result as EnhancedChunk[];
-  const centerIdx = chunks.findIndex(c => c.chunk_index === centerChunkIndex);
-  
+  `
+
+  const chunks = result as EnhancedChunk[]
+  const centerIdx = chunks.findIndex((c) => c.chunk_index === centerChunkIndex)
+
   if (centerIdx === -1) {
-    return { before: [], center: null, after: [] };
+    return { before: [], center: null, after: [] }
   }
-  
+
   return {
     before: chunks.slice(0, centerIdx),
     center: chunks[centerIdx],
-    after: chunks.slice(centerIdx + 1)
-  };
+    after: chunks.slice(centerIdx + 1),
+  }
 }
 
 export async function getChunkStats(asignaturaId: string): Promise<{
-  total_chunks: number;
-  total_pdfs: number;
-  avg_chunk_size: number;
-  chunks_with_overlap: number;
-  sections: { section_title: string; count: number }[];
-  pdf_stats: { filename: string; chunk_count: number; avg_similarity?: number }[];
+  total_chunks: number
+  total_pdfs: number
+  avg_chunk_size: number
+  chunks_with_overlap: number
+  sections: { section_title: string; count: number }[]
+  pdf_stats: { filename: string; chunk_count: number; avg_similarity?: number }[]
 }> {
-  
   const generalStats = await sql`
     SELECT 
       COUNT(*) as total_chunks,
@@ -791,8 +1035,8 @@ export async function getChunkStats(asignaturaId: string): Promise<{
       COUNT(CASE WHEN created_with_overlap = true THEN 1 END) as chunks_with_overlap
     FROM embedding_chunks
     WHERE asignatura_id = ${asignaturaId}
-  `;
-  
+  `
+
   const sectionStats = await sql`
     SELECT 
       COALESCE(section_title, 'Sin título') as section_title,
@@ -802,7 +1046,7 @@ export async function getChunkStats(asignaturaId: string): Promise<{
     GROUP BY section_title
     ORDER BY count DESC
     LIMIT 10
-  `;
+  `
 
   const pdfStats = await sql`
     SELECT 
@@ -813,43 +1057,38 @@ export async function getChunkStats(asignaturaId: string): Promise<{
     WHERE p.asignatura_id = ${asignaturaId}
     GROUP BY p.id, p.filename
     ORDER BY chunk_count DESC
-  `;
-  
-  const stats = generalStats[0] || {};
-  
+  `
+
+  const stats = generalStats[0] || {}
+
   return {
-    total_chunks: parseInt(stats.total_chunks || '0'),
-    total_pdfs: parseInt(stats.total_pdfs || '0'),
-    avg_chunk_size: parseFloat(stats.avg_chunk_size || '0'),
-    chunks_with_overlap: parseInt(stats.chunks_with_overlap || '0'),
+    total_chunks: Number.parseInt(stats.total_chunks || "0"),
+    total_pdfs: Number.parseInt(stats.total_pdfs || "0"),
+    avg_chunk_size: Number.parseFloat(stats.avg_chunk_size || "0"),
+    chunks_with_overlap: Number.parseInt(stats.chunks_with_overlap || "0"),
     sections: sectionStats as { section_title: string; count: number }[],
-    pdf_stats: pdfStats as { filename: string; chunk_count: number }[]
-  };
+    pdf_stats: pdfStats as { filename: string; chunk_count: number }[],
+  }
 }
 
 export async function searchChunksByText(
   asignaturaId: string,
   searchText: string,
   options: {
-    exact_match?: boolean;
-    case_sensitive?: boolean;
-    limit?: number;
-  } = {}
+    exact_match?: boolean
+    case_sensitive?: boolean
+    limit?: number
+  } = {},
 ): Promise<EnhancedChunk[]> {
-  
-  const { exact_match = false, case_sensitive = false, limit = 10 } = options;
-  
-  let searchCondition;
-  
+  const { exact_match = false, case_sensitive = false, limit = 10 } = options
+
+  let searchCondition
+
   if (exact_match) {
-    searchCondition = case_sensitive 
-      ? sql`chunk_text = ${searchText}`
-      : sql`LOWER(chunk_text) = LOWER(${searchText})`;
+    searchCondition = case_sensitive ? sql`chunk_text = ${searchText}` : sql`LOWER(chunk_text) = LOWER(${searchText})`
   } else {
-    const searchPattern = `%${searchText}%`;
-    searchCondition = case_sensitive
-      ? sql`chunk_text LIKE ${searchPattern}`
-      : sql`chunk_text ILIKE ${searchPattern}`;
+    const searchPattern = `%${searchText}%`
+    searchCondition = case_sensitive ? sql`chunk_text LIKE ${searchPattern}` : sql`chunk_text ILIKE ${searchPattern}`
   }
 
   const result = await sql`
@@ -865,7 +1104,7 @@ export async function searchChunksByText(
     AND ${searchCondition}
     ORDER BY chunk_index ASC
     LIMIT ${limit}
-  `;
-  
-  return result as EnhancedChunk[];
+  `
+
+  return result as EnhancedChunk[]
 }

@@ -16,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className="bg-[#D4D4D4] font-sans">
+      <body className="bg-[#D4D4D4]">
         <header className="flex items-center bg-[#012243] text-white flex-col md:flex-row p-4 gap-4">
           <Link href="/" className="flex-shrink-0">
             <Image src={Izt} alt="LogoOro" height={100} priority />

@@ -1,10 +1,9 @@
 "use client";
 
 import type React from "react";
-
 import Link from "next/link";
 import { useState } from "react";
-import { Menu, BookOpen, Users, LogOut, Home } from "lucide-react";
+import { Menu, BookOpen, Users, LogOut, Home, BarChart3 } from "lucide-react";
 import { AuthGuard } from "@/components/auth-guard";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
@@ -60,6 +59,13 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
             >
               <Users size={18} color="black" />
               <h2 className="text-lg font-medium text-black">Usuarios</h2>
+            </Link>
+            <Link
+              href="/admin/estadisticas"
+              className="flex items-center gap-2 hover:bg-blue-200 p-2 rounded"
+            >
+              <BarChart3 size={18} color="black" />
+              <h2 className="text-lg font-medium text-black">Estadísticas</h2>
             </Link>
             <button
               onClick={handleLogout}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import type { ReactNode } from "react";
 import { ChatbotModal } from "@/components/chatbot/chatbot-modal";
 import { Menu, FileText, Video, HelpCircle, X, Bot } from "lucide-react";
@@ -12,14 +12,16 @@ import { Button } from "@/components/ui/button";
 
 interface SubjectLayoutProps {
   children: ReactNode;
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default function SubjectLayout({
   children,
   params,
 }: SubjectLayoutProps) {
-  const { id } = params;
+  // Use React.use() to unwrap the Promise in client component
+  const { id } = use(params);
+
   const [subject, setSubject] = useState<Subject | null>(null);
   const [semesterName, setSemesterName] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -89,9 +91,9 @@ export default function SubjectLayout({
 
   const sidebarItems = [
     {
-      href: `/asignatura/${subject.id}/textos`,
+      href: `/asignatura/${subject.id}/pdfs`,
       icon: FileText,
-      label: "Textos",
+      label: "PDFs",
       count: subject.pdfs.length,
       available: subject.pdfs.length > 0,
     },
@@ -103,7 +105,7 @@ export default function SubjectLayout({
       available: subject.videos.length > 0,
     },
     {
-      href: `/asignatura/${subject.id}/Examen`,
+      href: `/examen/${subject.id}/`,
       icon: HelpCircle,
       label: "Examen",
       count: subject.questions.length,
@@ -143,6 +145,7 @@ export default function SubjectLayout({
         </nav>
       </header>
 
+      {/* Sidebar - Móvil (drawer fijo) */}
       <aside
         className={`
           fixed inset-y-0 left-0 z-40
@@ -216,6 +219,7 @@ export default function SubjectLayout({
       </aside>
 
       <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar - Escritorio (siempre presente, cambia de ancho) */}
         <aside
           className={`
             flex-shrink-0
@@ -278,6 +282,7 @@ export default function SubjectLayout({
               })}
             </nav>
 
+            {/* Botón del Chatbot - siempre visible */}
             <div className="mt-8">
               <button
                 onClick={() => setShowChatbotModal(true)}
@@ -295,11 +300,18 @@ export default function SubjectLayout({
           </div>
         </aside>
 
-        {/* Contenido principal */}
         <main className="flex-1 overflow-y-auto">
           <div className="container mx-auto px-4 py-6">{children}</div>
         </main>
       </div>
+
+      {/* Overlay para móvil cuando el sidebar está abierto */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* Chatbot Modal (renderizado condicionalmente) */}
       {subject && showChatbotModal && (

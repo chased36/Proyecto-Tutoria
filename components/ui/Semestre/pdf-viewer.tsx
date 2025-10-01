@@ -113,7 +113,7 @@ function PDFStatusIndicator({ pdf: initialPdf }: PDFStatusIndicatorProps) {
             className="flex items-center gap-1 text-xs bg-red-100 text-red-700 px-2 py-1 rounded cursor-help"
             title={errorMessage || "Ocurrió un error desconocido"}
           >
-            <AlertCircle size={12} /> Error
+            <AlertCircle size={12} /> Error. Solo lectura, no TUTOR-IA
           </span>
         );
       default:
