@@ -19,7 +19,6 @@ export default function SubjectLayout({
   children,
   params,
 }: SubjectLayoutProps) {
-  // Use React.use() to unwrap the Promise in client component
   const { id } = use(params);
 
   const [subject, setSubject] = useState<Subject | null>(null);
@@ -91,9 +90,9 @@ export default function SubjectLayout({
 
   const sidebarItems = [
     {
-      href: `/asignatura/${subject.id}/pdfs`,
+      href: `/asignatura/${subject.id}/textos`,
       icon: FileText,
-      label: "PDFs",
+      label: "Textos",
       count: subject.pdfs.length,
       available: subject.pdfs.length > 0,
     },
@@ -308,7 +307,7 @@ export default function SubjectLayout({
       {/* Overlay para móvil cuando el sidebar está abierto */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+          className="fixed inset-0 bg-opacity-50 z-30 md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}

@@ -71,7 +71,7 @@ export default function ExamResultPage({ params }: ExamResultPageProps) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto pb-8">
+    <div className="min-h-screen max-w-4xl mx-auto pb-8">
       <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
