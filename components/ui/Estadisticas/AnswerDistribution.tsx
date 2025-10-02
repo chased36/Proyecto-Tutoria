@@ -98,9 +98,6 @@ export default function AnswerDistribution({
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Pregunta {questionIndex}</span>
-          <button className="text-sm text-blue-600 hover:underline">
-            Copiar gráfico
-          </button>
         </CardTitle>
         <p className="text-sm text-gray-600">
           {safeTotalCorrect}/{safeTotalAnswers} respuestas correctas
