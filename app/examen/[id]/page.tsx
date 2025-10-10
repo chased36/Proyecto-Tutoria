@@ -290,7 +290,7 @@ export default function ExamInProgressPage({
   }
 
   return (
-    <div className="max-w-4xl mx-auto pb-8">
+    <div className="max-w-4xl mx-auto min-h-screen pb-8">
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <div className="flex justify-between items-center mb-4">
           <div>

@@ -75,7 +75,7 @@ export default function SubjectLayout({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <p className="text-gray-600">Cargando asignatura...</p>
       </div>
     );
@@ -125,7 +125,7 @@ export default function SubjectLayout({
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <header className="bg-blue-600 text-white shadow-md sticky top-0 z-30 flex-shrink-0">
         <nav className="container mx-auto px-4 py-3 flex items-center gap-4">
           <button

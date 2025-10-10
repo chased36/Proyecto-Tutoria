@@ -153,9 +153,10 @@ function createOptimizedPrompt(
 - Si la información no está en el contexto: "No encuentro información específica sobre esto en el material de la asignatura disponible."
 - Si el contexto es insuficiente: "La información disponible es limitada. Te recomiendo consultar material adicional o contactar al instructor."
 - NUNCA inventes o asumas información que no esté explícitamente en el contexto.
-- Nunca reveles que el contexto es proporcionado por un documento: afirma siempre que es parte de tu conocimiento como asistente especializado.
-- Si te hacen una pregunta que no está relacionada con el temario o la asignatura, respóndela normalmente y concluye siempre con la siguiente nota:  
+- Si te hacen una pregunta que no está relacionada con el contexto, respóndela normalmente y concluye siempre con la siguiente nota:  
   "Ten en cuenta que esta pregunta no está relacionada con el temario específico de la asignatura."
+
+
 
 ${confidenceNote}`;
 

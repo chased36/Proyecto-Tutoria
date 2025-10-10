@@ -24,14 +24,16 @@ export default async function SubjectPage({ params }: SubjectPageProps) {
     const semesterName = await getSemesterNameById(subject.semestre_id);
 
     return (
-      <div className="max-w-4xl mx-auto p-6">
-        <h1 className="text-3xl font-bold mb-6">{subject.name}</h1>
+      <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-xl">
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-8">
+          {subject.name}
+        </h1>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           {subject.pdfs.length > 0 && (
             <Link
               href={`/asignatura/${id}/textos`}
-              className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-lg text-center transition-colors"
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:bg-blue-600 text-white p-4 rounded-lg text-center transition-colors"
             >
               <div className="text-lg font-semibold">Ver Textos</div>
               <div className="text-sm opacity-90">
@@ -43,7 +45,7 @@ export default async function SubjectPage({ params }: SubjectPageProps) {
           {subject.videos.length > 0 && (
             <Link
               href={`/asignatura/${id}/videos`}
-              className="bg-green-500 hover:bg-green-600 text-white p-4 rounded-lg text-center transition-colors"
+              className="bg-gradient-to-r from-green-500 to-teal-600 hover:bg-green-600 text-white p-4 rounded-lg text-center transition-colors"
             >
               <div className="text-lg font-semibold">Ver Videos</div>
               <div className="text-sm opacity-90">
@@ -55,7 +57,7 @@ export default async function SubjectPage({ params }: SubjectPageProps) {
           {subject.questions.length > 0 && (
             <Link
               href={`/examen/${id}`}
-              className="bg-purple-500 hover:bg-purple-600 text-white p-4 rounded-lg text-center transition-colors"
+              className="bg-gradient-to-r from-purple-500 to-pink-600 hover:bg-purple-600 text-white p-4 rounded-lg text-center transition-colors"
             >
               <div className="text-lg font-semibold">Hacer Examen</div>
               <div className="text-sm opacity-90">
