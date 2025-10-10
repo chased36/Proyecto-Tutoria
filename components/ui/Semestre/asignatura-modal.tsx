@@ -1,8 +1,7 @@
 "use client";
 
 import type React from "react";
-
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { Upload, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,55 +38,55 @@ export function SubjectModal({
   open,
   onOpenChange,
 }: SubjectModalProps) {
-  const [subjectName, setSubjectName] = useState(editingSubject?.name || "");
+  const [subjectName, setSubjectName] = useState("");
   const [pdfs, setPdfs] = useState<File[]>([]);
-  const [youtubeLinks, setYoutubeLinks] = useState<string[]>(
-    editingSubject?.videos.length
-      ? editingSubject.videos.map((v) => v.url)
-      : [""]
-  );
-  const [questions, setQuestions] = useState(
-    [
-      editingSubject?.questions.length
-        ? editingSubject.questions.map((q) => ({
-            question: q.pregunta,
-            correctAnswer: q.respuesta_correcta,
-            wrongAnswers: q.respuestas_incorrectas,
-          }))
-        : [{ question: "", correctAnswer: "", wrongAnswers: ["", "", ""] }],
-    ].flat()
-  );
+  const [youtubeLinks, setYoutubeLinks] = useState<string[]>([""]);
+  const [questions, setQuestions] = useState([
+    { question: "", correctAnswer: "", wrongAnswers: ["", "", ""] },
+  ]);
   const [uploading, setUploading] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
 
   const isOpen = open !== undefined ? open : internalOpen;
   const setIsOpen = onOpenChange || setInternalOpen;
 
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen, editingSubject]);
+
   const resetForm = () => {
     setSubjectName(editingSubject?.name || "");
     setPdfs([]);
-    setYoutubeLinks(
-      editingSubject?.videos.length
-        ? editingSubject.videos.map((v) => v.url)
-        : [""]
-    );
-    setQuestions(
-      [
-        editingSubject?.questions.length
-          ? editingSubject.questions.map((q) => ({
-              question: q.pregunta,
-              correctAnswer: q.respuesta_correcta,
-              wrongAnswers: q.respuestas_incorrectas,
-            }))
-          : [{ question: "", correctAnswer: "", wrongAnswers: ["", "", ""] }],
-      ].flat()
-    );
+
+    if (editingSubject?.videos && editingSubject.videos.length > 0) {
+      setYoutubeLinks(editingSubject.videos.map((v) => v.url));
+    } else {
+      setYoutubeLinks([""]);
+    }
+
+    if (editingSubject?.questions && editingSubject.questions.length > 0) {
+      setQuestions(
+        editingSubject.questions.map((q) => ({
+          question: q.pregunta,
+          correctAnswer: q.respuesta_correcta,
+          wrongAnswers: q.respuestas_incorrectas,
+        }))
+      );
+    } else {
+      setQuestions([
+        { question: "", correctAnswer: "", wrongAnswers: ["", "", ""] },
+      ]);
+    }
   };
 
   const handleOpenChange = (newOpen: boolean) => {
     setIsOpen(newOpen);
     if (!newOpen) {
-      resetForm();
+      setTimeout(() => {
+        resetForm();
+      }, 100);
     }
   };
 
@@ -98,21 +97,24 @@ export function SubjectModal({
     try {
       const form = e.target as HTMLFormElement;
       const formData = new FormData(form);
+
       formData.append("semesterId", semesterId);
 
-      // Agregar archivos PDF
+      if (editingSubject) {
+        formData.append("subjectId", editingSubject.id);
+        formData.append("isEditing", "true");
+      }
+
       for (const file of pdfs) {
         formData.append("pdfs", file);
       }
 
-      // Agregar enlaces de YouTube
       youtubeLinks.forEach((link, index) => {
         if (link.trim()) {
           formData.append(`youtubeLink_${index}`, link.trim());
         }
       });
 
-      // Agregar preguntas
       questions.forEach((q, index) => {
         if (
           q.question.trim() &&
@@ -129,9 +131,9 @@ export function SubjectModal({
 
       await onSubmit(formData);
       setIsOpen(false);
-      resetForm();
     } catch (error) {
       console.error("Error submitting form:", error);
+      alert("Error al procesar el formulario. Por favor, inténtalo de nuevo.");
     } finally {
       setUploading(false);
     }
@@ -142,7 +144,15 @@ export function SubjectModal({
   };
 
   const removeYouTubeLink = (index: number) => {
-    setYoutubeLinks(youtubeLinks.filter((_, i) => i !== index));
+    if (youtubeLinks.length > 1) {
+      setYoutubeLinks(youtubeLinks.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateYouTubeLink = (index: number, value: string) => {
+    const updated = [...youtubeLinks];
+    updated[index] = value;
+    setYoutubeLinks(updated);
   };
 
   const addQuestion = () => {
@@ -153,7 +163,9 @@ export function SubjectModal({
   };
 
   const removeQuestion = (index: number) => {
-    setQuestions(questions.filter((_, i) => i !== index));
+    if (questions.length > 1) {
+      setQuestions(questions.filter((_, i) => i !== index));
+    }
   };
 
   const updateQuestion = (
@@ -169,6 +181,16 @@ export function SubjectModal({
     } else if (field === "correctAnswer") {
       updated[index].correctAnswer = value as string;
     }
+    setQuestions(updated);
+  };
+
+  const updateWrongAnswer = (
+    questionIndex: number,
+    answerIndex: number,
+    value: string
+  ) => {
+    const updated = [...questions];
+    updated[questionIndex].wrongAnswers[answerIndex] = value;
     setQuestions(updated);
   };
 
@@ -203,7 +225,7 @@ export function SubjectModal({
                 name="name"
                 value={subjectName}
                 onChange={(e) => setSubjectName(e.target.value)}
-                placeholder="Nombre de la asignatura"
+                placeholder="Ej: Matemáticas I, Historia de México, etc."
                 required
               />
             </div>
@@ -233,8 +255,30 @@ export function SubjectModal({
                 }}
                 className="mb-2"
               />
+              {editingSubject && editingSubject.pdfs.length > 0 && (
+                <div className="bg-blue-50 p-3 rounded-md mb-2">
+                  <p className="text-sm font-medium mb-2 text-blue-800">
+                    PDFs actuales ({editingSubject.pdfs.length}):
+                  </p>
+                  <ul className="space-y-1">
+                    {editingSubject.pdfs.slice(0, 3).map((pdf, i) => (
+                      <li key={i} className="text-sm text-blue-700">
+                        📄 {pdf.filename}
+                      </li>
+                    ))}
+                    {editingSubject.pdfs.length > 3 && (
+                      <li className="text-sm text-blue-600">
+                        ... y {editingSubject.pdfs.length - 3} archivos más
+                      </li>
+                    )}
+                  </ul>
+                  <p className="text-xs text-blue-600 mt-2">
+                    Los nuevos archivos se añadirán a los existentes
+                  </p>
+                </div>
+              )}
               {pdfs.length > 0 && (
-                <div className="bg-gray-50 p-3 rounded-md">
+                <div className="bg-gray-100 p-3 rounded-md">
                   <p className="text-sm font-medium mb-2">
                     Archivos seleccionados:
                   </p>
@@ -245,7 +289,7 @@ export function SubjectModal({
                         className="text-sm text-gray-700 flex justify-between items-center"
                       >
                         <span>
-                          {file.name} ({(file.size / 1024 / 1024).toFixed(2)}{" "}
+                          📄 {file.name} ({(file.size / 1024 / 1024).toFixed(2)}{" "}
                           MB)
                         </span>
                         <Button
@@ -264,7 +308,6 @@ export function SubjectModal({
                 </div>
               )}
             </div>
-
             <div>
               <Label>Videos de YouTube</Label>
               <div className="space-y-2">
@@ -273,12 +316,10 @@ export function SubjectModal({
                     <Input
                       type="url"
                       value={link}
-                      onChange={(e) => {
-                        const updated = [...youtubeLinks];
-                        updated[index] = e.target.value;
-                        setYoutubeLinks(updated);
-                      }}
-                      placeholder={`URL del video ${index + 1}`}
+                      onChange={(e) => updateYouTubeLink(index, e.target.value)}
+                      placeholder={`https://www.youtube.com/watch?v=... (Video ${
+                        index + 1
+                      })`}
                     />
                     {youtubeLinks.length > 1 && (
                       <Button
@@ -305,10 +346,10 @@ export function SubjectModal({
             </div>
 
             <div>
-              <Label>Preguntas</Label>
+              <Label>Preguntas de Evaluación</Label>
               <div className="space-y-4">
                 {questions.map((q, qIndex) => (
-                  <Card key={qIndex}>
+                  <Card key={qIndex} className="border border-gray-200">
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-center">
                         <CardTitle className="text-base">
@@ -348,18 +389,16 @@ export function SubjectModal({
                       />
                       <div className="space-y-2">
                         <Label className="text-sm text-gray-600">
-                          Respuestas incorrectas:
+                          Respuestas incorrectas (3 opciones):
                         </Label>
                         {q.wrongAnswers.map((wrong, i) => (
                           <Input
                             key={i}
                             placeholder={`Respuesta incorrecta ${i + 1}`}
                             value={wrong}
-                            onChange={(e) => {
-                              const updated = [...q.wrongAnswers];
-                              updated[i] = e.target.value;
-                              updateQuestion(qIndex, "wrongAnswers", updated);
-                            }}
+                            onChange={(e) =>
+                              updateWrongAnswer(qIndex, i, e.target.value)
+                            }
                           />
                         ))}
                       </div>
@@ -390,9 +429,9 @@ export function SubjectModal({
               <Button type="submit" disabled={uploading}>
                 {uploading && <Upload className="w-4 h-4 mr-2 animate-spin" />}
                 {uploading
-                  ? "Subiendo..."
+                  ? "Procesando..."
                   : editingSubject
-                  ? "Guardar cambios"
+                  ? "Guardar Cambios"
                   : "Crear Asignatura"}
               </Button>
             </div>

@@ -3,9 +3,16 @@ import { deleteMultiplePDFsFromBlob, deletePDFFromBlob, deleteEmbeddingsFromBlob
 
 const sql = neon(process.env.DATABASE_URL!)
 
+export type Carrera = {
+  id: string
+  name: string
+  created_at: string
+}
+
 export type Semester = {
   id: string
   name: string
+  carrera_id: string
   created_at: string
 }
 
@@ -80,10 +87,6 @@ export type ChunkMetadata = {
   page_number?: number
 }
 
-// ============================================
-// NUEVOS TIPOS PARA EL SISTEMA DE CUESTIONARIOS
-// ============================================
-
 export type QuizResult = {
   id: string
   asignatura_id: string
@@ -138,6 +141,64 @@ export type QuizStatistics = {
   answer_distribution: AnswerDistribution[]
 }
 
+// Funciones para Carreras
+export async function getCarreras(): Promise<Carrera[]> {
+  const result = await sql`
+    SELECT id, name, created_at
+    FROM carrera
+    ORDER BY created_at DESC
+  `
+  return result as Carrera[]
+}
+
+export async function createCarrera(name: string): Promise<Carrera> {
+  const result = await sql`
+    INSERT INTO carrera (id, name, created_at)
+    VALUES (gen_random_uuid(), ${name}, NOW())
+    RETURNING id, name, created_at
+  `
+  return result[0] as Carrera
+}
+
+export async function updateCarrera(id: string, name: string): Promise<Carrera> {
+  const result = await sql`
+    UPDATE carrera
+    SET name = ${name}
+    WHERE id = ${id}
+    RETURNING id, name, created_at
+  `
+  return result[0] as Carrera
+}
+
+export async function deleteCarrera(id: string): Promise<void> {
+  console.log(`Iniciando eliminación de la carrera con ID: ${id}`)
+
+  const semesters = await sql`
+    SELECT id FROM semestre WHERE carrera_id = ${id}
+  `
+
+  console.log(`La carrera tiene ${semesters.length} semestres para eliminar`)
+
+  for (const semester of semesters) {
+    await deleteSemester(semester.id)
+  }
+
+  await sql`DELETE FROM carrera WHERE id = ${id}`
+  console.log(`Carrera con ID ${id} eliminada exitosamente`)
+}
+
+export async function getCarreraNameById(id: string): Promise<string> {
+  try {
+    const result = await sql`
+      SELECT name FROM carrera WHERE id = ${id}
+    `
+    return result.length > 0 ? result[0].name : "Carrera desconocida"
+  } catch (error) {
+    console.error("Error al obtener nombre de la carrera:", error)
+    return "Carrera desconocida"
+  }
+}
+
 // Funciones para Semestres
 export async function getSemesters(): Promise<Semester[]> {
   const result = await sql`
@@ -148,11 +209,21 @@ export async function getSemesters(): Promise<Semester[]> {
   return result as Semester[]
 }
 
-export async function createSemester(name: string): Promise<Semester> {
+export async function getSemestersByCarrera(carreraId: string): Promise<Semester[]> {
   const result = await sql`
-    INSERT INTO semestre (id, name, created_at)
-    VALUES (gen_random_uuid(), ${name}, NOW())
-    RETURNING id, name, created_at
+    SELECT id, name, carrera_id, created_at
+    FROM semestre
+    WHERE carrera_id = ${carreraId}
+    ORDER BY created_at DESC
+  `
+  return result as Semester[]
+}
+
+export async function createSemester(name: string, carreraId: string): Promise<Semester> {
+  const result = await sql`
+    INSERT INTO semestre (id, name, carrera_id, created_at)
+    VALUES (gen_random_uuid(), ${name}, ${carreraId}, NOW())
+    RETURNING id, name, carrera_id, created_at
   `
   return result[0] as Semester
 }
@@ -183,6 +254,20 @@ export async function getSemesterNameById(id: string): Promise<string> {
   } catch (error) {
     console.error("Error al obtener nombre del semestre:", error)
     return "Semestre desconocido"
+  }
+}
+
+export async function getSemesterById(id: string): Promise<Semester | null> {
+  try {
+    const result = await sql`
+      SELECT id, name, carrera_id, created_at
+      FROM semestre
+      WHERE id = ${id}
+    `
+    return result.length > 0 ? (result[0] as Semester) : null
+  } catch (error) {
+    console.error("Error al obtener semestre:", error)
+    return null
   }
 }
 
@@ -235,18 +320,28 @@ export async function createSubject(name: string, semesterId: string): Promise<S
   }
 }
 
-export async function updateSubject(id: string, name: string): Promise<void> {
-  await sql`
-    UPDATE asignatura 
+export async function updateSubject(id: string, name: string): Promise<Subject> {
+  const result = await sql`
+    UPDATE asignatura
     SET name = ${name}
     WHERE id = ${id}
+    RETURNING id, name, semestre_id, created_at
   `
+
+  return {
+    id: result[0].id,
+    name: result[0].name,
+    semestre_id: result[0].semestre_id,
+    created_at: result[0].created_at,
+    pdfs: [],
+    videos: [],
+    questions: [],
+  } as Subject
 }
 
 export async function deleteSubject(id: string): Promise<void> {
   console.log(`Iniciando eliminación de la asignatura con ID: ${id}`)
 
-  // Eliminar resultados de cuestionarios relacionados
   await sql`DELETE FROM respuesta_usuario WHERE resultado_id IN 
     (SELECT id FROM resultado_examen WHERE asignatura_id = ${id})`
   await sql`DELETE FROM resultado_examen WHERE asignatura_id = ${id}`

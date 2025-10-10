@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache"
 import {
+  getCarreras,
+  createCarrera,
+  updateCarrera,
+  deleteCarrera,
   getSemesters,
+  getSemestersByCarrera,
   createSemester,
   deleteSemester,
   getSubjectsBySemester,
@@ -12,11 +17,74 @@ import {
   createPDF,
   createVideo,
   createQuestion,
+  type Carrera,
   type Semester,
   type Subject,
 } from "@/lib/db"
 import { uploadMultiplePDFs } from "@/lib/blob"
 import { enqueueEmbeddingGeneration } from "./enqueue-embeddings"
+
+export async function getCarrerasAction(): Promise<Carrera[]> {
+  return await getCarreras()
+}
+
+export async function createCarreraAction(
+  name: string,
+): Promise<{ success: boolean; carrera?: Carrera; error?: string }> {
+  try {
+    if (!name.trim()) {
+      return { success: false, error: "El nombre de la carrera es requerido" }
+    }
+
+    const carrera = await createCarrera(name.trim())
+    revalidatePath("/admin/semestres")
+    revalidatePath("/")
+    return { success: true, carrera }
+  } catch (error) {
+    console.error("Error creating carrera:", error)
+    return { success: false, error: "Error al crear la carrera" }
+  }
+}
+
+export async function updateCarreraAction(
+  id: string,
+  name: string,
+): Promise<{ success: boolean; carrera?: Carrera; error?: string }> {
+  try {
+    if (!name.trim()) {
+      return { success: false, error: "El nombre de la carrera es requerido" }
+    }
+
+    const carrera = await updateCarrera(id, name.trim())
+    revalidatePath("/admin/semestres")
+    revalidatePath("/")
+    return { success: true, carrera }
+  } catch (error) {
+    console.error("Error updating carrera:", error)
+    return { success: false, error: "Error al actualizar la carrera" }
+  }
+}
+
+export async function deleteCarreraAction(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log("Eliminando carrera con ID:", id)
+    await deleteCarrera(id)
+    console.log("Carrera eliminada exitosamente")
+    revalidatePath("/admin/semestres")
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Error deleting carrera:", error)
+    return {
+      success: false,
+      error: `Error al eliminar la carrera: ${error instanceof Error ? error.message : "Error desconocido"}`,
+    }
+  }
+}
+
+export async function getSemestersByCarreraAction(carreraId: string): Promise<Semester[]> {
+  return await getSemestersByCarrera(carreraId)
+}
 
 export async function getSemestersAction(): Promise<Semester[]> {
   return await getSemesters()
@@ -24,14 +92,20 @@ export async function getSemestersAction(): Promise<Semester[]> {
 
 export async function createSemesterAction(
   name: string,
+  carreraId: string,
 ): Promise<{ success: boolean; semester?: Semester; error?: string }> {
   try {
     if (!name.trim()) {
       return { success: false, error: "El nombre del semestre es requerido" }
     }
 
-    const semester = await createSemester(name.trim())
+    if (!carreraId) {
+      return { success: false, error: "La carrera es requerida" }
+    }
+
+    const semester = await createSemester(name.trim(), carreraId)
     revalidatePath("/admin/semestres")
+    revalidatePath("/")
     return { success: true, semester }
   } catch (error) {
     console.error("Error creating semester:", error)
@@ -45,6 +119,7 @@ export async function deleteSemesterAction(id: string): Promise<{ success: boole
     await deleteSemester(id)
     console.log("Semestre eliminado exitosamente")
     revalidatePath("/admin/semestres")
+    revalidatePath("/")
     return { success: true }
   } catch (error) {
     console.error("Error deleting semester:", error)
@@ -160,14 +235,12 @@ export async function createSubjectWithFilesAction(
     for (const q of questions) {
       await createQuestion(q.question, q.correctAnswer, q.wrongAnswers, subject.id)
     }
-    console.log("=== Asignatura creada exitosamente (embeddings en proceso) ===")
+
     revalidatePath("/admin/semestres")
-    return {
-      success: true,
-      subject,
-    }
+    revalidatePath("/")
+    return { success: true, subject }
   } catch (error) {
-    console.error("Error creating subject:", error)
+    console.error("Error creating subject with files:", error)
     return {
       success: false,
       error: `Error al crear la asignatura: ${error instanceof Error ? error.message : "Error desconocido"}`,
@@ -175,15 +248,19 @@ export async function createSubjectWithFilesAction(
   }
 }
 
-export async function updateSubjectAction(id: string, name: string): Promise<{ success: boolean; error?: string }> {
+export async function updateSubjectAction(
+  id: string,
+  name: string,
+): Promise<{ success: boolean; subject?: Subject; error?: string }> {
   try {
     if (!name.trim()) {
       return { success: false, error: "El nombre de la asignatura es requerido" }
     }
 
-    await updateSubject(id, name.trim())
+    const subject = await updateSubject(id, name.trim())
     revalidatePath("/admin/semestres")
-    return { success: true }
+    revalidatePath("/")
+    return { success: true, subject }
   } catch (error) {
     console.error("Error updating subject:", error)
     return { success: false, error: "Error al actualizar la asignatura" }
@@ -196,6 +273,7 @@ export async function deleteSubjectAction(id: string): Promise<{ success: boolea
     await deleteSubject(id)
     console.log("Asignatura eliminada exitosamente")
     revalidatePath("/admin/semestres")
+    revalidatePath("/")
     return { success: true }
   } catch (error) {
     console.error("Error deleting subject:", error)

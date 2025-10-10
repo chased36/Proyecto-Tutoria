@@ -23,6 +23,9 @@ export default function SubjectLayout({
 
   const [subject, setSubject] = useState<Subject | null>(null);
   const [semesterName, setSemesterName] = useState<string | null>(null);
+  const [semesterId, setSemesterId] = useState<string | null>(null);
+  const [carreraName, setCarreraName] = useState<string | null>(null);
+  const [carreraId, setCarreraId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,9 +44,15 @@ export default function SubjectLayout({
           );
           setSubject(null);
           setSemesterName(null);
+          setSemesterId(null);
+          setCarreraName(null);
+          setCarreraId(null);
         } else {
           setSubject(result.subject);
           setSemesterName(result.semesterName);
+          setSemesterId(result.semesterId);
+          setCarreraName(result.carreraName);
+          setCarreraId(result.carreraId);
         }
       } catch (err) {
         console.error("Error en useEffect al cargar datos:", err);
@@ -54,6 +63,9 @@ export default function SubjectLayout({
         );
         setSubject(null);
         setSemesterName(null);
+        setSemesterId(null);
+        setCarreraName(null);
+        setCarreraId(null);
       } finally {
         setLoading(false);
       }
@@ -124,16 +136,33 @@ export default function SubjectLayout({
             <Menu size={20} />
           </button>
 
-          <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap text-sm md:text-base">
             <Link href="/" className="hover:underline">
               ← Inicio
             </Link>
-            <Link
-              href={`/?semester=${subject.semestre_id}`}
-              className="hover:underline"
-            >
-              {semesterName}
-            </Link>
+            <span className="text-blue-200">/</span>
+            {carreraId && carreraName && (
+              <>
+                <Link
+                  href={`/?carrera=${carreraId}`}
+                  className="hover:underline"
+                >
+                  {carreraName}
+                </Link>
+                <span className="text-blue-200">/</span>
+              </>
+            )}
+            {semesterId && semesterName && (
+              <>
+                <Link
+                  href={`/?carrera=${carreraId}&semester=${semesterId}`}
+                  className="hover:underline"
+                >
+                  {semesterName}
+                </Link>
+                <span className="text-blue-200">/</span>
+              </>
+            )}
             <Link
               href={`/asignatura/${id}`}
               className="hover:underline font-semibold"
@@ -146,14 +175,9 @@ export default function SubjectLayout({
 
       {/* Sidebar - Móvil (drawer fijo) */}
       <aside
-        className={`
-          fixed inset-y-0 left-0 z-40
-          bg-blue-200 text-gray-800 shadow-lg border-r
-          transition-transform duration-300 ease-in-out
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-          w-64 h-full md:hidden
-          overflow-y-auto
-        `}
+        className={`fixed inset-y-0 left-0 z-40 bg-blue-200 text-gray-800 shadow-lg border-r transition-transform duration-300 ease-in-out ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } w-64 h-full md:hidden overflow-y-auto`}
       >
         <div className="p-4">
           <div className="flex items-center justify-between mb-6">
@@ -211,7 +235,7 @@ export default function SubjectLayout({
               }}
               className="w-full bg-red-600 hover:bg-red-700 text-white text-lg py-3 h-auto"
             >
-              TUTOR-IA
+              TutorIA
             </Button>
           </div>
         </div>
@@ -220,14 +244,9 @@ export default function SubjectLayout({
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - Escritorio (siempre presente, cambia de ancho) */}
         <aside
-          className={`
-            flex-shrink-0
-            bg-blue-200 text-gray-800 shadow-lg border-r
-            transition-all duration-300
-            hidden md:flex flex-col
-            ${sidebarOpen ? "w-64" : "w-16"}
-            overflow-y-auto
-          `}
+          className={`flex-shrink-0 bg-blue-200 text-gray-800 shadow-lg border-r transition-all duration-300 hidden md:flex flex-col ${
+            sidebarOpen ? "w-64" : "w-16"
+          } overflow-y-auto`}
         >
           <div className="p-4">
             {sidebarOpen && (

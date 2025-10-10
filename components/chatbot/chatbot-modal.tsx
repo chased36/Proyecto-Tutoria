@@ -20,29 +20,19 @@ export function ChatbotModal({
   isOpen,
   onClose,
 }: ChatbotModalProps) {
-  const {
-    messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
-    error, // El objeto de error del AI SDK
-  } = useChat({
-    // La ruta de la API debe ser relativa al origen, no la ruta del archivo
-    api: "/api/chatbot",
-    // Mensajes iniciales, incluyendo el mensaje de bienvenida
-    initialMessages: [
-      {
-        id: "welcome",
-        role: "assistant",
-        content: `¡Hola! Soy TUTOR-IA.
+  const { messages, input, handleInputChange, handleSubmit, isLoading, error } =
+    useChat({
+      api: "/api/chatbot",
+      initialMessages: [
+        {
+          id: "welcome",
+          role: "assistant",
+          content: `¡Hola! Soy TutorIA.
 ¿Tienes alguna duda sobre ${subjectName}?`,
-      },
-    ],
-    // Si necesitas pasar subjectId al backend, puedes hacerlo aquí:
-    // Ten en cuenta que tu route.ts actual no usa subjectId, necesitarías modificarlo si lo necesitas para el contexto del AI.
-    body: { subjectId: subjectId }, // Se pasa el subjectId en el body
-  });
+        },
+      ],
+      body: { subjectId: subjectId },
+    });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -50,19 +40,16 @@ export function ChatbotModal({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Scroll al final cada vez que los mensajes cambian
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Si el modal se abre, reinicia el scroll
   useEffect(() => {
     if (isOpen) {
       scrollToBottom();
     }
   }, [isOpen]);
 
-  // Funciones de estilo e iconos (adaptadas para useChat roles)
   const getMessageIcon = (role: string) => {
     switch (role) {
       case "assistant":
@@ -70,7 +57,7 @@ export function ChatbotModal({
       case "user":
         return <User size={16} className="text-gray-600" />;
       default:
-        return <Bot size={16} className="text-red-600" />; // Fallback para otros roles si los hubiera
+        return <Bot size={16} className="text-red-600" />;
     }
   };
 
@@ -85,7 +72,7 @@ export function ChatbotModal({
     }
   };
 
-  if (!isOpen) return null; // No renderizar si no está abierto
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 pointer-events-none">
@@ -96,12 +83,11 @@ export function ChatbotModal({
             <div className="flex items-center gap-2">
               <Bot size={20} />
               <div>
-                <h3 className="font-semibold">TUTOR-IA</h3>
+                <h3 className="font-semibold">TutorIA</h3>
                 <p className="text-xs opacity-90">{subjectName}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {/* Eliminado el botón de prueba de conexión para simplificar */}
               <button
                 onClick={onClose}
                 className="hover:bg-red-700 p-1 rounded"
@@ -144,7 +130,6 @@ export function ChatbotModal({
                   <p className="text-sm whitespace-pre-wrap">
                     {message.content}
                   </p>
-                  {/* Eliminado timestamp y metadata ya que no son directamente parte de useChat messages */}
                 </div>
                 {message.role === "user" && (
                   <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
@@ -174,7 +159,7 @@ export function ChatbotModal({
               <Input
                 type="text"
                 value={input}
-                onChange={handleInputChange} // Usa handleInputChange de useChat
+                onChange={handleInputChange}
                 placeholder="Pregunta sobre la asignatura..."
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={isLoading}

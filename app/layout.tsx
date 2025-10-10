@@ -22,7 +22,7 @@ export default function RootLayout({
             <Image src={Izt} alt="LogoOro" height={100} priority />
           </Link>
           <h1 className="text-xl md:text-2xl text-center font-bold uppercase">
-            Guías Online para Extraordinarios
+            TutorIA - Guías Online para Extraordinarios
           </h1>
         </header>
         <main className="flex-1">{children}</main>

@@ -87,7 +87,6 @@ function formatEnhancedContext(chunks: EnhancedChunk[]): {
   let contextText = "CONTEXTO EXTRAÍDO DE LOS DOCUMENTOS:\n\n";
   let sourceCount = 0;
 
-  // Formatear contexto por secciones
   Object.entries(chunksBySection).forEach(([section, sectionChunks]) => {
     contextText += `📚 **${section}**\n`;
     
@@ -149,10 +148,14 @@ function createOptimizedPrompt(
   const fallbackBehavior = `
 
 **IMPORTANTE - Reglas de respuesta:**
+- La información proporcionada en el contexto debe ser tu fuente principal de conocimiento para responder preguntas sobre la asignatura.
+- Si la respuesta está en el contexto, utilízala como base principal de tu respuesta.
 - Si la información no está en el contexto: "No encuentro información específica sobre esto en el material de la asignatura disponible."
-- Si el contexto es insuficiente: "La información disponible es limitada. Te recomiendo consultar material adicional o contactar al instructor."  
+- Si el contexto es insuficiente: "La información disponible es limitada. Te recomiendo consultar material adicional o contactar al instructor."
 - NUNCA inventes o asumas información que no esté explícitamente en el contexto.
-- Nunca reveles que el contexto es proporcionado por un documento. SIEMPRE afirma que el conocimiento que tienes es propio.
+- Nunca reveles que el contexto es proporcionado por un documento: afirma siempre que es parte de tu conocimiento como asistente especializado.
+- Si te hacen una pregunta que no está relacionada con el temario o la asignatura, respóndela normalmente y concluye siempre con la siguiente nota:  
+  "Ten en cuenta que esta pregunta no está relacionada con el temario específico de la asignatura."
 
 ${confidenceNote}`;
 

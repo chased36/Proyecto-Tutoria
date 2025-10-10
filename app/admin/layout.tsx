@@ -47,11 +47,11 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
               <h2 className="text-lg font-medium text-black">Inicio</h2>
             </Link>
             <Link
-              href="/admin/semestres"
+              href="/admin/carreras"
               className="flex items-center gap-2 hover:bg-blue-200 p-2 rounded"
             >
               <BookOpen size={18} color="black" />
-              <h2 className="text-lg font-medium text-black">Semestre</h2>
+              <h2 className="text-lg font-medium text-black">Carreras</h2>
             </Link>
             <Link
               href="/admin/usuarios"
