@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { XCircle, ChevronDown, ChevronUp } from "lucide-react";
 
 interface ExamResultPageProps {
   params: Promise<{ id: string }>;
@@ -32,6 +33,7 @@ export default function ExamResultPage({ params }: ExamResultPageProps) {
   const router = useRouter();
   const { id: asignaturaId } = use(params);
   const [resultData, setResultData] = useState<ExamResultData | null>(null);
+  const [showIncorrect, setShowIncorrect] = useState(false);
 
   useEffect(() => {
     const storedData = sessionStorage.getItem("examResult");
@@ -69,6 +71,10 @@ export default function ExamResultPage({ params }: ExamResultPageProps) {
     if (percentage >= 50) return "Aprobado, pero puedes mejorar";
     return "Necesitas repasar el material";
   };
+
+  const incorrectAnswers = resultData.detailedAnswers.filter(
+    (answer) => !answer.esCorrecta
+  );
 
   return (
     <div className="min-h-screen max-w-4xl mx-auto pb-8">
@@ -153,6 +159,27 @@ export default function ExamResultPage({ params }: ExamResultPageProps) {
           </div>
         </div>
 
+        {incorrectAnswers.length > 0 && (
+          <div className="mb-4">
+            <button
+              onClick={() => setShowIncorrect(!showIncorrect)}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+            >
+              {showIncorrect ? (
+                <>
+                  <ChevronUp size={20} />
+                  Ocultar Preguntas Incorrectas
+                </>
+              ) : (
+                <>
+                  <ChevronDown size={20} />
+                  Ver Preguntas Incorrectas ({incorrectAnswers.length})
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
         <div className="flex gap-4 justify-center">
           <Link
             href={`/asignatura/${asignaturaId}`}
@@ -162,6 +189,45 @@ export default function ExamResultPage({ params }: ExamResultPageProps) {
           </Link>
         </div>
       </div>
+
+      {/* Sección de preguntas incorrectas */}
+      {showIncorrect && incorrectAnswers.length > 0 && (
+        <div className="bg-white rounded-lg shadow-lg p-8">
+          <div className="flex items-center gap-2 mb-6">
+            <XCircle className="text-red-600" size={28} />
+            <h2 className="text-2xl font-bold text-gray-800">
+              Preguntas Incorrectas
+            </h2>
+          </div>
+
+          {/* Lista de respuestas incorrectas */}
+          <div className="space-y-4">
+            {incorrectAnswers.map((answer, index) => (
+              <div
+                key={index}
+                className="border-2 border-red-300 bg-red-50 rounded-lg p-4"
+              >
+                {/* Header de la pregunta */}
+                <div className="flex items-start gap-3 mb-0">
+                  <XCircle
+                    className="text-red-600 flex-shrink-0 mt-1"
+                    size={24}
+                  />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-800 mb-2">
+                      Pregunta{" "}
+                      {resultData.detailedAnswers.findIndex(
+                        (a) => a.pregunta === answer.pregunta
+                      ) + 1}
+                    </h3>
+                    <p className="text-gray-700 mb-3">{answer.pregunta}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
