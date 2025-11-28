@@ -48,7 +48,7 @@ export default function ExamInProgressPage({
         const result = await getExamDataAction(asignaturaId);
 
         if (!result.success || !result.subject) {
-          setError(result.error || "Error al cargar el examen");
+          setError(result.error || "Error al cargar el Cuestionario");
           return;
         }
 
@@ -74,11 +74,11 @@ export default function ExamInProgressPage({
         setTimeStarted(Date.now());
 
         console.log(
-          `✅ Examen cargado: ${questionsWithShuffledAnswers.length} preguntas mezcladas`
+          `✅ Cuestionario cargado: ${questionsWithShuffledAnswers.length} preguntas mezcladas`
         );
       } catch (err) {
-        setError("Error de conexión al cargar el examen");
-        console.error("Error loading exam:", err);
+        setError("Error de conexión al cargar el Cuestionario");
+        console.error("Error loading Cuestionario:", err);
       } finally {
         setLoading(false);
       }
@@ -91,7 +91,7 @@ export default function ExamInProgressPage({
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (!isSubmitting && Object.keys(selectedAnswers).length > 0) {
         const message =
-          "¿Estás seguro que quieres salir? Se perderá tu progreso del examen.";
+          "¿Estás seguro que quieres salir? Se perderá tu progreso del cuestionario.";
         e.returnValue = message;
         return message;
       }
@@ -104,7 +104,7 @@ export default function ExamInProgressPage({
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        console.warn("⚠️ Usuario salió de la pestaña durante el examen");
+        console.warn("⚠️ Usuario salió de la pestaña durante el cuestionario");
       }
     };
 
@@ -133,13 +133,13 @@ export default function ExamInProgressPage({
   const handleSubmitExam = async () => {
     if (Object.keys(selectedAnswers).length < questions.length) {
       alert(
-        "Debes responder todas las preguntas antes de finalizar el examen."
+        "Debes responder todas las preguntas antes de finalizar el cuestionario."
       );
       return;
     }
 
     const confirmSubmit = window.confirm(
-      "¿Estás seguro de que deseas finalizar el examen? No podrás cambiar tus respuestas después."
+      "¿Estás seguro de que deseas finalizar el cuestionario? No podrás cambiar tus respuestas después."
     );
 
     if (!confirmSubmit) {
@@ -157,7 +157,7 @@ export default function ExamInProgressPage({
         esCorrecta: selectedAnswers[index] === question.respuesta_correcta,
       }));
 
-      console.log("💾 Guardando resultado del examen...");
+      console.log("💾 Guardando resultado del cuestionario...");
 
       const response = await fetch("/api/quiz/save", {
         method: "POST",
@@ -202,17 +202,17 @@ export default function ExamInProgressPage({
           percentage: Math.round((correctAnswers / questions.length) * 100),
           timeSpent,
           fecha: result.resultado.fecha,
-          subjectName: subject?.name || "Examen",
+          subjectName: subject?.name || "Cuestionario",
           detailedAnswers,
         })
       );
 
       console.log("➡️ Redirigiendo a resultados...");
-      router.push(`/examen/${asignaturaId}/resultado`);
+      router.push(`/cuestionario/${asignaturaId}/resultado`);
     } catch (error) {
-      console.error("❌ Error al guardar el examen:", error);
+      console.error("❌ Error al guardar el cuestionario:", error);
       alert(
-        "Hubo un error al guardar tu examen. Por favor, inténtalo de nuevo."
+        "Hubo un error al guardar tu cuestionario. Por favor, inténtalo de nuevo."
       );
       setIsSubmitting(false);
     }
@@ -232,7 +232,7 @@ export default function ExamInProgressPage({
       <div className="min-h-screen flex items-center justify-center min-h-96">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Cargando examen...</p>
+          <p className="text-gray-600 font-medium">Cargando cuestionario...</p>
           <p className="text-gray-500 text-sm mt-2">Por favor espera</p>
         </div>
       </div>
@@ -245,7 +245,7 @@ export default function ExamInProgressPage({
         <div className="bg-white rounded-lg shadow-md p-8 text-center">
           <div className="text-red-500 text-6xl mb-4">❌</div>
           <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-            Error al cargar el examen
+            Error al cargar el cuestionario
           </h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <div className="flex gap-4 justify-center">
@@ -276,7 +276,7 @@ export default function ExamInProgressPage({
             Sin preguntas disponibles
           </h2>
           <p className="text-gray-600 mb-6">
-            No hay preguntas disponibles para este examen.
+            No hay preguntas disponibles para este cuestionario.
           </p>
           <button
             onClick={() => router.back()}
@@ -297,7 +297,9 @@ export default function ExamInProgressPage({
             <h2 className="text-lg font-semibold text-gray-800">
               Pregunta {currentQuestion + 1} de {questions.length}
             </h2>
-            <p className="text-sm text-gray-500">{subject?.name || "Examen"}</p>
+            <p className="text-sm text-gray-500">
+              {subject?.name || "Cuestionario"}
+            </p>
           </div>
           <div className="text-right">
             <div className="text-sm text-gray-500 mb-1">Progreso</div>
@@ -460,7 +462,7 @@ export default function ExamInProgressPage({
                   Enviando...
                 </span>
               ) : (
-                "Finalizar Examen ✓"
+                "Finalizar Cuestionario ✓"
               )}
             </button>
           )}

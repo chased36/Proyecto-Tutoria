@@ -39,7 +39,7 @@ export default function ExamResultPage({ params }: ExamResultPageProps) {
     const storedData = sessionStorage.getItem("examResult");
 
     if (!storedData) {
-      router.push(`/examen/${asignaturaId}`);
+      router.push(`/cuestionario/${asignaturaId}`);
       return;
     }
 
@@ -81,7 +81,7 @@ export default function ExamResultPage({ params }: ExamResultPageProps) {
       <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            ¡Examen Completado!
+            ¡Cuestionario Completado!
           </h1>
           <p className="text-gray-600">{resultData.subjectName}</p>
         </div>

@@ -116,9 +116,9 @@ export default function SubjectLayout({
       available: subject.videos.length > 0,
     },
     {
-      href: `/examen/${subject.id}/`,
+      href: `/cuestionario/${subject.id}/`,
       icon: HelpCircle,
-      label: "Examen",
+      label: "Cuestionario",
       count: subject.questions.length,
       available: subject.questions.length > 0,
     },
