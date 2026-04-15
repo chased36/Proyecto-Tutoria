@@ -2,10 +2,10 @@
 const nextConfig = {
   experimental: {
     serverActions: {
-      bodySizeLimit: '10mb', // Aumentar el límite a 10MB
+      bodySizeLimit: '10mb',
     },
   },
-  serverExternalPackages: ['@neondatabase/serverless'], // Movido desde experimental
+  serverExternalPackages: ['@neondatabase/serverless'],
   eslint: {
     ignoreDuringBuilds: true,
   },

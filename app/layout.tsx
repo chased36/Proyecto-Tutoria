@@ -3,6 +3,7 @@ import "@/components/globals.css";
 import Image from "next/image";
 import Izt from "../public/LogoBlanco.png";
 import Meta from "../public/MetaversoBlanco.png";
+import TutorIA from "../public/Imagen1.png";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -25,6 +26,7 @@ export default function RootLayout({
           <h1 className="text-xl md:text-2xl text-center font-bold">
             TutorIA - GUÍAS INTELIGENTES PARA EXAMEN EXTRAORDINARIO
           </h1>
+          <Image src={TutorIA} alt="TutorIA" height={100} priority />
           <Image src={Meta} alt="Metaverso" height={100} priority />
         </header>
         <main className="flex-1">{children}</main>
@@ -32,7 +34,8 @@ export default function RootLayout({
           <div className="container mx-auto px-4 text-center">
             <p className="text-sm md:text-base">
               <span>
-                2025, Metaverso UNAM, Facultad de Estudios Superiores Iztacala.{" "}
+                2025, Metaverso UNAM, Facultad de Estudios Superiores
+                Iztacala.{" "}
               </span>
               <a
                 href="https://www.iztacala.unam.mx/documentos/AvisodePrivacidadIntegral_V_DPE_02_2024.pdf"
