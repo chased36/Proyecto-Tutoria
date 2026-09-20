@@ -21,7 +21,7 @@ import {
   type Semester,
   type Subject,
 } from "@/lib/db"
-import { uploadMultiplePDFs } from "@/lib/blob"
+import { deleteMultiplePDFsFromBlob } from "@/lib/blob"
 import { enqueueEmbeddingGeneration } from "./enqueue-embeddings"
 
 export async function getCarrerasAction(): Promise<Carrera[]> {
@@ -147,22 +147,10 @@ export async function createSubjectWithFilesAction(
       return { success: false, error: "El nombre de la asignatura es requerido" }
     }
 
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      console.error("BLOB_READ_WRITE_TOKEN no está disponible")
-      return { success: false, error: "Configuración de almacenamiento no disponible. Contacta al administrador." }
-    }
-
-    const pdfFiles: File[] = []
-    const fileEntries = formData.getAll("pdfs")
-
-    for (const entry of fileEntries) {
-      if (entry instanceof File && entry.size > 0) {
-        if (entry.size > 5 * 1024 * 1024) {
-          return { success: false, error: `El archivo ${entry.name} excede el límite de 5MB` }
-        }
-        pdfFiles.push(entry)
-      }
-    }
+    const uploadedPdfsRaw = formData.get("uploadedPDFs") as string | null
+    const uploadedPDFsData: { filename: string; url: string }[] = uploadedPdfsRaw
+      ? JSON.parse(uploadedPdfsRaw)
+      : []
 
     const youtubeLinks: string[] = []
     let linkIndex = 0
@@ -202,27 +190,24 @@ export async function createSubjectWithFilesAction(
     const subject = await createSubject(name.trim(), semesterId)
     console.log("Asignatura creada con ID:", subject.id)
 
-    if (pdfFiles.length > 0) {
-      console.log("Subiendo PDFs a Vercel Blob...")
+    if (uploadedPDFsData.length > 0) {
       try {
-        const uploadedPDFsData = await uploadMultiplePDFs(pdfFiles)
-        console.log("PDFs subidos exitosamente:", uploadedPDFsData.length)
-
         for (const pdf of uploadedPDFsData) {
           const { task } = await createPDF(pdf.filename, pdf.url, subject.id)
-          console.log(`✅ PDF ${pdf.filename} guardado y tarea ${task.id} creada`)
+          console.log(`PDF ${pdf.filename} guardado y tarea ${task.id} creada`)
 
           await enqueueEmbeddingGeneration(task.id)
-          console.log(`📞 Worker notificado para procesar la tarea ${task.id}`)
+          console.log(`Worker notificado para procesar la tarea ${task.id}`)
         }
 
-        console.log("🔄 Los embeddings se procesarán automáticamente en segundo plano")
-      } catch (uploadError) {
-        console.error("Error específico durante el procesamiento de PDFs:", uploadError)
+        console.log("Los embeddings se procesarán automáticamente en segundo plano")
+      } catch (dbError) {
+        console.error("Error al registrar PDFs en base de datos:", dbError)
+        await deleteMultiplePDFsFromBlob(uploadedPDFsData.map((p) => p.url))
         await deleteSubject(subject.id)
         return {
           success: false,
-          error: `Error al procesar archivos PDF: ${uploadError instanceof Error ? uploadError.message : "Error desconocido"}`,
+          error: `Error al registrar archivos PDF: ${dbError instanceof Error ? dbError.message : "Error desconocido"}`,
         }
       }
     }

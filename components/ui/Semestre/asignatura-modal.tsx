@@ -3,6 +3,7 @@
 import type React from "react";
 import { useState, useEffect, type FormEvent } from "react";
 import { Upload, X, Plus } from "lucide-react";
+import { upload } from "@vercel/blob/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,6 +46,7 @@ export function SubjectModal({
     { question: "", correctAnswer: "", wrongAnswers: ["", "", ""] },
   ]);
   const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState("");
   const [internalOpen, setInternalOpen] = useState(false);
 
   const isOpen = open !== undefined ? open : internalOpen;
@@ -59,6 +61,7 @@ export function SubjectModal({
   const resetForm = () => {
     setSubjectName(editingSubject?.name || "");
     setPdfs([]);
+    setUploadStatus("");
 
     if (editingSubject?.videos && editingSubject.videos.length > 0) {
       setYoutubeLinks(editingSubject.videos.map((v) => v.url));
@@ -95,6 +98,29 @@ export function SubjectModal({
     setUploading(true);
 
     try {
+      const uploadedPDFsData: { filename: string; url: string }[] = [];
+
+      if (pdfs.length > 0) {
+        setUploadStatus("Subiendo PDFs al almacenamiento...");
+        const uploadPromises = pdfs.map(async (file) => {
+          const timestamp = Date.now();
+          const filename = `pdfs/${timestamp}-${file.name}`;
+          const newBlob = await upload(filename, file, {
+            access: "public",
+            handleUploadUrl: "/api/blob/upload",
+          });
+          return {
+            filename: file.name,
+            url: newBlob.url,
+          };
+        });
+
+        const results = await Promise.all(uploadPromises);
+        uploadedPDFsData.push(...results);
+      }
+
+      setUploadStatus("Guardando asignatura...");
+
       const form = e.target as HTMLFormElement;
       const formData = new FormData(form);
 
@@ -105,9 +131,7 @@ export function SubjectModal({
         formData.append("isEditing", "true");
       }
 
-      for (const file of pdfs) {
-        formData.append("pdfs", file);
-      }
+      formData.append("uploadedPDFs", JSON.stringify(uploadedPDFsData));
 
       youtubeLinks.forEach((link, index) => {
         if (link.trim()) {
@@ -136,6 +160,7 @@ export function SubjectModal({
       alert("Error al procesar el formulario. Por favor, inténtalo de nuevo.");
     } finally {
       setUploading(false);
+      setUploadStatus("");
     }
   };
 
@@ -308,6 +333,7 @@ export function SubjectModal({
                 </div>
               )}
             </div>
+
             <div>
               <Label>Videos de YouTube</Label>
               <div className="space-y-2">
@@ -429,7 +455,7 @@ export function SubjectModal({
               <Button type="submit" disabled={uploading}>
                 {uploading && <Upload className="w-4 h-4 mr-2 animate-spin" />}
                 {uploading
-                  ? "Procesando..."
+                  ? uploadStatus || "Procesando..."
                   : editingSubject
                   ? "Guardar Cambios"
                   : "Crear Asignatura"}
