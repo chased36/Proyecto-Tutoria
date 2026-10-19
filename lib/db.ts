@@ -7,6 +7,8 @@ export type Carrera = {
   id: string
   name: string
   created_at: string
+  semesters_count?: number
+  subjects_count?: number
 }
 
 export type Semester = {
@@ -14,6 +16,7 @@ export type Semester = {
   name: string
   carrera_id: string
   created_at: string
+  subjects_count?: number
 }
 
 export type Subject = {
@@ -144,9 +147,17 @@ export type QuizStatistics = {
 // Funciones para Carreras
 export async function getCarreras(): Promise<Carrera[]> {
   const result = await sql`
-    SELECT id, name, created_at
-    FROM carrera
-    ORDER BY created_at DESC
+    SELECT
+      c.id,
+      c.name,
+      c.created_at,
+      COUNT(DISTINCT s.id)::int AS semesters_count,
+      COUNT(a.id)::int AS subjects_count
+    FROM carrera c
+    LEFT JOIN semestre s ON s.carrera_id = c.id
+    LEFT JOIN asignatura a ON a.semestre_id = s.id
+    GROUP BY c.id, c.name, c.created_at
+    ORDER BY c.created_at DESC
   `
   return result as Carrera[]
 }
@@ -211,10 +222,17 @@ export async function getSemesters(): Promise<Semester[]> {
 
 export async function getSemestersByCarrera(carreraId: string): Promise<Semester[]> {
   const result = await sql`
-    SELECT id, name, carrera_id, created_at
-    FROM semestre
-    WHERE carrera_id = ${carreraId}
-    ORDER BY created_at DESC
+    SELECT
+      s.id,
+      s.name,
+      s.carrera_id,
+      s.created_at,
+      COUNT(a.id)::int AS subjects_count
+    FROM semestre s
+    LEFT JOIN asignatura a ON a.semestre_id = s.id
+    WHERE s.carrera_id = ${carreraId}
+    GROUP BY s.id, s.name, s.carrera_id, s.created_at
+    ORDER BY s.created_at DESC
   `
   return result as Semester[]
 }
@@ -429,6 +447,60 @@ export async function getSubjectById(id: string): Promise<Subject | null> {
   } catch (error) {
     console.error("Error al buscar asignatura por ID:", error)
     return null
+  }
+}
+
+export async function replaceVideosBySubject(
+  subjectId: string,
+  urls: string[],
+): Promise<void> {
+  await sql`DELETE FROM videos WHERE asignatura_id = ${subjectId}`
+
+  for (const url of urls) {
+    const title = `Video - ${url.split("/").pop() || "YouTube"}`
+    await createVideo(title, url, subjectId)
+  }
+}
+
+export async function syncQuestionsBySubject(
+  subjectId: string,
+  questions: {
+    id?: string
+    question: string
+    correctAnswer: string
+    wrongAnswers: string[]
+  }[],
+): Promise<void> {
+  const existingQuestions = await sql`
+    SELECT id FROM pregunta WHERE asignatura_id = ${subjectId}
+  `
+  const existingIds = existingQuestions.map((q: any) => q.id as string)
+  const incomingIds = questions.map((q) => q.id).filter(Boolean) as string[]
+
+  const idsToDelete = existingIds.filter((id) => !incomingIds.includes(id))
+  for (const qId of idsToDelete) {
+    await sql`DELETE FROM respuesta_usuario WHERE pregunta_id = ${qId}`
+    await sql`DELETE FROM respuestaincorrecta WHERE pregunta_id = ${qId}`
+    await sql`DELETE FROM pregunta WHERE id = ${qId}`
+  }
+
+  for (const q of questions) {
+    if (q.id && existingIds.includes(q.id)) {
+      await sql`
+        UPDATE pregunta
+        SET pregunta = ${q.question}, respuesta_correcta = ${q.correctAnswer}
+        WHERE id = ${q.id} AND asignatura_id = ${subjectId}
+      `
+      await sql`DELETE FROM respuestaincorrecta WHERE pregunta_id = ${q.id}`
+      for (const respuesta of q.wrongAnswers) {
+        await sql`
+          INSERT INTO respuestaincorrecta (id, respuesta, pregunta_id)
+          VALUES (gen_random_uuid(), ${respuesta}, ${q.id})
+        `
+      }
+    } else {
+      await createQuestion(q.question, q.correctAnswer, q.wrongAnswers, subjectId)
+    }
   }
 }
 

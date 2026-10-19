@@ -17,11 +17,13 @@ import {
   createPDF,
   createVideo,
   createQuestion,
+  replaceVideosBySubject,
+  syncQuestionsBySubject,
   type Carrera,
   type Semester,
   type Subject,
 } from "@/lib/db"
-import { uploadMultiplePDFs } from "@/lib/blob"
+import { deleteMultiplePDFsFromBlob, uploadMultiplePDFs } from "@/lib/blob"
 import { enqueueEmbeddingGeneration } from "./enqueue-embeddings"
 
 export async function getCarrerasAction(): Promise<Carrera[]> {
@@ -280,6 +282,103 @@ export async function deleteSubjectAction(id: string): Promise<{ success: boolea
     return {
       success: false,
       error: `Error al eliminar la asignatura: ${error instanceof Error ? error.message : "Error desconocido"}`,
+    }
+  }
+}
+
+export async function updateSubjectWithFilesAction(
+  formData: FormData,
+): Promise<{ success: boolean; subject?: Subject; error?: string }> {
+  try {
+    console.log("=== Iniciando actualización de asignatura con archivos ===")
+
+    const subjectId = formData.get("subjectId") as string
+    const name = formData.get("name") as string
+
+    if (!subjectId) {
+      return { success: false, error: "ID de asignatura no proporcionado" }
+    }
+
+    if (!name?.trim()) {
+      return { success: false, error: "El nombre de la asignatura es requerido" }
+    }
+
+    const uploadedPdfsRaw = formData.get("uploadedPDFs") as string | null
+    const uploadedPDFsData: { filename: string; url: string }[] = uploadedPdfsRaw
+      ? JSON.parse(uploadedPdfsRaw)
+      : []
+
+    const youtubeLinks: string[] = []
+    let linkIndex = 0
+    while (formData.has(`youtubeLink_${linkIndex}`)) {
+      const link = formData.get(`youtubeLink_${linkIndex}`) as string
+      if (link?.trim()) {
+        youtubeLinks.push(link.trim())
+      }
+      linkIndex++
+    }
+
+    const questions: {
+      id?: string
+      question: string
+      correctAnswer: string
+      wrongAnswers: string[]
+    }[] = []
+    let questionIndex = 0
+    while (formData.has(`question_${questionIndex}`)) {
+      const questionId = formData.get(`questionId_${questionIndex}`) as string | null
+      const question = formData.get(`question_${questionIndex}`) as string
+      const correctAnswer = formData.get(`correctAnswer_${questionIndex}`) as string
+      const wrongAnswers: string[] = []
+
+      for (let i = 0; i < 3; i++) {
+        const wrongAnswer = formData.get(`wrongAnswer_${questionIndex}_${i}`) as string
+        if (wrongAnswer?.trim()) {
+          wrongAnswers.push(wrongAnswer.trim())
+        }
+      }
+
+      if (question?.trim() && correctAnswer?.trim() && wrongAnswers.length === 3) {
+        questions.push({
+          id: questionId || undefined,
+          question: question.trim(),
+          correctAnswer: correctAnswer.trim(),
+          wrongAnswers,
+        })
+      }
+      questionIndex++
+    }
+
+    const subject = await updateSubject(subjectId, name.trim())
+
+    if (uploadedPDFsData.length > 0) {
+      try {
+        for (const pdf of uploadedPDFsData) {
+          const { task } = await createPDF(pdf.filename, pdf.url, subjectId)
+          await enqueueEmbeddingGeneration(task.id)
+        }
+      } catch (dbError) {
+        console.error("Error al registrar nuevos PDFs:", dbError)
+        await deleteMultiplePDFsFromBlob(uploadedPDFsData.map((p) => p.url))
+        return {
+          success: false,
+          error: `Error al registrar archivos PDF: ${dbError instanceof Error ? dbError.message : "Error desconocido"}`,
+        }
+      }
+    }
+
+    await replaceVideosBySubject(subjectId, youtubeLinks)
+    await syncQuestionsBySubject(subjectId, questions)
+
+    revalidatePath("/admin/carreras")
+    revalidatePath("/editor/carreras")
+    revalidatePath("/")
+    return { success: true, subject }
+  } catch (error) {
+    console.error("Error updating subject with files:", error)
+    return {
+      success: false,
+      error: `Error al actualizar la asignatura: ${error instanceof Error ? error.message : "Error desconocido"}`,
     }
   }
 }

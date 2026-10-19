@@ -41,9 +41,14 @@ export function SubjectModal({
   const [subjectName, setSubjectName] = useState("");
   const [pdfs, setPdfs] = useState<File[]>([]);
   const [youtubeLinks, setYoutubeLinks] = useState<string[]>([""]);
-  const [questions, setQuestions] = useState([
-    { question: "", correctAnswer: "", wrongAnswers: ["", "", ""] },
-  ]);
+  const [questions, setQuestions] = useState<
+    {
+      id?: string;
+      question: string;
+      correctAnswer: string;
+      wrongAnswers: string[];
+    }[]
+  >([{ question: "", correctAnswer: "", wrongAnswers: ["", "", ""] }]);
   const [uploading, setUploading] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
 
@@ -69,10 +74,15 @@ export function SubjectModal({
     if (editingSubject?.questions && editingSubject.questions.length > 0) {
       setQuestions(
         editingSubject.questions.map((q) => ({
+          id: q.id,
           question: q.pregunta,
           correctAnswer: q.respuesta_correcta,
-          wrongAnswers: q.respuestas_incorrectas,
-        }))
+          wrongAnswers: [
+            q.respuestas_incorrectas[0] || "",
+            q.respuestas_incorrectas[1] || "",
+            q.respuestas_incorrectas[2] || "",
+          ],
+        })),
       );
     } else {
       setQuestions([
@@ -109,23 +119,36 @@ export function SubjectModal({
         formData.append("pdfs", file);
       }
 
-      youtubeLinks.forEach((link, index) => {
+      let validLinkIndex = 0;
+      youtubeLinks.forEach((link) => {
         if (link.trim()) {
-          formData.append(`youtubeLink_${index}`, link.trim());
+          formData.append(`youtubeLink_${validLinkIndex}`, link.trim());
+          validLinkIndex++;
         }
       });
 
-      questions.forEach((q, index) => {
+      let validQuestionIndex = 0;
+      questions.forEach((q) => {
         if (
           q.question.trim() &&
           q.correctAnswer.trim() &&
           q.wrongAnswers.every((w) => w.trim())
         ) {
-          formData.append(`question_${index}`, q.question.trim());
-          formData.append(`correctAnswer_${index}`, q.correctAnswer.trim());
+          if (q.id) {
+            formData.append(`questionId_${validQuestionIndex}`, q.id);
+          }
+          formData.append(`question_${validQuestionIndex}`, q.question.trim());
+          formData.append(
+            `correctAnswer_${validQuestionIndex}`,
+            q.correctAnswer.trim(),
+          );
           q.wrongAnswers.forEach((wrong, wrongIndex) => {
-            formData.append(`wrongAnswer_${index}_${wrongIndex}`, wrong.trim());
+            formData.append(
+              `wrongAnswer_${validQuestionIndex}_${wrongIndex}`,
+              wrong.trim(),
+            );
           });
+          validQuestionIndex++;
         }
       });
 
@@ -171,7 +194,7 @@ export function SubjectModal({
   const updateQuestion = (
     index: number,
     field: "question" | "correctAnswer" | "wrongAnswers",
-    value: string | string[]
+    value: string | string[],
   ) => {
     const updated = [...questions];
     if (field === "wrongAnswers") {
@@ -187,7 +210,7 @@ export function SubjectModal({
   const updateWrongAnswer = (
     questionIndex: number,
     answerIndex: number,
-    value: string
+    value: string,
   ) => {
     const updated = [...questions];
     updated[questionIndex].wrongAnswers[answerIndex] = value;
@@ -240,13 +263,13 @@ export function SubjectModal({
                   if (e.target.files) {
                     const files = Array.from(e.target.files);
                     const oversizedFiles = files.filter(
-                      (file) => file.size > 5 * 1024 * 1024
+                      (file) => file.size > 5 * 1024 * 1024,
                     );
                     if (oversizedFiles.length > 0) {
                       alert(
                         `Los siguientes archivos exceden 5MB: ${oversizedFiles
                           .map((f) => f.name)
-                          .join(", ")}`
+                          .join(", ")}`,
                       );
                       return;
                     }
@@ -383,7 +406,7 @@ export function SubjectModal({
                           updateQuestion(
                             qIndex,
                             "correctAnswer",
-                            e.target.value
+                            e.target.value,
                           )
                         }
                       />
@@ -431,8 +454,8 @@ export function SubjectModal({
                 {uploading
                   ? "Procesando..."
                   : editingSubject
-                  ? "Guardar Cambios"
-                  : "Crear Asignatura"}
+                    ? "Guardar Cambios"
+                    : "Crear Asignatura"}
               </Button>
             </div>
           </form>

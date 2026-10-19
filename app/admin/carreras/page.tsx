@@ -10,6 +10,7 @@ import {
   deleteSemesterAction,
   getSubjectsBySemesterAction,
   createSubjectWithFilesAction,
+  updateSubjectWithFilesAction,
   deleteSubjectAction,
 } from "@/app/actions/semestre-actions";
 import type { Carrera, Semester, Subject } from "@/lib/db";
@@ -25,10 +26,10 @@ export default function SemestreAdminPage() {
   const [semesters, setSemesters] = useState<Record<string, Semester[]>>({});
   const [subjects, setSubjects] = useState<Record<string, Subject[]>>({});
   const [expandedCarreras, setExpandedCarreras] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [expandedSemesters, setExpandedSemesters] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [loading, setLoading] = useState(true);
 
@@ -120,7 +121,7 @@ export default function SemestreAdminPage() {
   const handleDeleteCarrera = async (id: string) => {
     if (
       !confirm(
-        "¿Estás seguro de eliminar esta carrera? Se eliminarán todos sus semestres y asignaturas."
+        "¿Estás seguro de eliminar esta carrera? Se eliminarán todos sus semestres y asignaturas.",
       )
     ) {
       return;
@@ -150,7 +151,7 @@ export default function SemestreAdminPage() {
 
     const result = await createSemesterAction(
       newSemesterName,
-      selectedCarreraForSemester
+      selectedCarreraForSemester,
     );
     if (result.success && result.semester) {
       setSemesters((prev) => ({
@@ -169,11 +170,11 @@ export default function SemestreAdminPage() {
 
   const handleDeleteSemester = async (
     semesterId: string,
-    carreraId: string
+    carreraId: string,
   ) => {
     if (
       !confirm(
-        "¿Estás seguro de eliminar este semestre? Se eliminarán todas sus asignaturas."
+        "¿Estás seguro de eliminar este semestre? Se eliminarán todas sus asignaturas.",
       )
     ) {
       return;
@@ -194,18 +195,31 @@ export default function SemestreAdminPage() {
   };
 
   const handleCreateSubject = async (formData: FormData) => {
+    const isEditing = formData.get("isEditing") === "true";
     try {
-      const result = await createSubjectWithFilesAction(formData);
+      const result = isEditing
+        ? await updateSubjectWithFilesAction(formData)
+        : await createSubjectWithFilesAction(formData);
+
       if (result.success) {
         const semesterId = formData.get("semesterId") as string;
         await loadSubjectsBySemester(semesterId);
         setIsSubjectModalOpen(false);
         setEditingSubject(null);
       } else {
-        alert(result.error || "Error al crear la asignatura");
+        alert(
+          result.error ||
+            (isEditing
+              ? "Error al actualizar la asignatura"
+              : "Error al crear la asignatura"),
+        );
       }
     } catch (error) {
-      alert("Error al crear la asignatura");
+      alert(
+        isEditing
+          ? "Error al actualizar la asignatura"
+          : "Error al crear la asignatura",
+      );
     }
   };
 
@@ -214,7 +228,7 @@ export default function SemestreAdminPage() {
     setCurrentSemesterId(subject.semestre_id);
     for (const carreraId in semesters) {
       const semester = semesters[carreraId].find(
-        (s) => s.id === subject.semestre_id
+        (s) => s.id === subject.semestre_id,
       );
       if (semester) {
         setCurrentSemesterName(semester.name);
@@ -226,7 +240,7 @@ export default function SemestreAdminPage() {
 
   const handleOpenCreateSubject = (
     semesterId: string,
-    semesterName: string
+    semesterName: string,
   ) => {
     setEditingSubject(null);
     setCurrentSemesterId(semesterId);
@@ -331,7 +345,10 @@ export default function SemestreAdminPage() {
           editingSubject={editingSubject}
           onSubmit={handleCreateSubject}
           open={isSubjectModalOpen}
-          onOpenChange={setIsSubjectModalOpen}
+          onOpenChange={(open) => {
+            setIsSubjectModalOpen(open);
+            if (!open) setEditingSubject(null);
+          }}
         />
       )}
 
@@ -352,7 +369,11 @@ export default function SemestreAdminPage() {
                   )}
                   <CardTitle>{carrera.name}</CardTitle>
                   <span className="text-sm text-gray-500">
-                    ({semesters[carrera.id]?.length || 0} semestres)
+                    (
+                    {semesters[carrera.id]?.length ??
+                      carrera.semesters_count ??
+                      0}{" "}
+                    semestres)
                   </span>
                 </button>
                 <Button
@@ -385,7 +406,11 @@ export default function SemestreAdminPage() {
                               {semester.name}
                             </span>
                             <span className="text-sm text-gray-500">
-                              ({subjects[semester.id]?.length || 0} asignaturas)
+                              (
+                              {subjects[semester.id]?.length ??
+                                semester.subjects_count ??
+                                0}{" "}
+                              asignaturas)
                             </span>
                           </button>
                           <div className="flex gap-2">
@@ -395,7 +420,7 @@ export default function SemestreAdminPage() {
                               onClick={() =>
                                 handleOpenCreateSubject(
                                   semester.id,
-                                  semester.name
+                                  semester.name,
                                 )
                               }
                             >
